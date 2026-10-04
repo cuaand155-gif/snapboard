@@ -4,7 +4,7 @@ import SnapboardCore
 
 /// Snapboard lives in the menu bar (no Dock icon). The menu switches layouts, opens the
 /// layout editor, adds and removes widgets, pauses snapping and opens Settings.
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private let snapper = Snapper()
     private let hotkeys = Hotkeys()
@@ -42,6 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Explains the one permission, opens the right Settings page, and carries on by itself
     /// as soon as the permission is switched on (no restart needed).
     private func showWelcome() {
+        if let w = welcomeWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            w.makeKeyAndOrderFront(nil)
+            return
+        }
+        permissionTimer?.invalidate()
         let view = WelcomeView(openSettings: {
             WindowMover.askForPermission()
             WindowMover.openAccessibilitySettings()
@@ -49,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 440, height: 260), styleMask: [.titled, .closable],
                          backing: .buffered, defer: false)
         w.title = "Welcome to Snapboard"
+        w.delegate = self
         w.contentView = NSHostingView(rootView: view)
         w.isReleasedWhenClosed = false
         w.center()
@@ -58,6 +65,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             if WindowMover.isTrusted { self?.startSnapping() }
         }
+    }
+
+    /// Closing the welcome window without allowing: stop checking; the menu offers it again.
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === welcomeWindow else { return }
+        permissionTimer?.invalidate()
+        permissionTimer = nil
+        welcomeWindow = nil
     }
 
     private func applyShortcutSetting() {

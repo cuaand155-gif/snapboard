@@ -7,8 +7,12 @@ struct SettingsView: View {
     @ObservedObject var model = AppModel.shared
     @State private var token = Keychain.token() ?? ""
     @State private var testResult: String?
-    @State private var openAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var openAtLogin = [SMAppService.Status.enabled, .requiresApproval].contains(SMAppService.mainApp.status)
     let onFeedChanged: () -> Void
+
+    init(onFeedChanged: @escaping () -> Void) {
+        self.onFeedChanged = onFeedChanged
+    }
 
     var body: some View {
         Form {
@@ -52,11 +56,18 @@ struct SettingsView: View {
     }
 
     private func setOpenAtLogin(_ on: Bool) {
+        let status = SMAppService.mainApp.status
+        // Already in the state asked for (this also stops the toggle reset below from looping).
+        if on == (status == .enabled || status == .requiresApproval) { return }
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            if SMAppService.mainApp.status == .requiresApproval {
+                testResult = "Almost: allow Snapboard under System Settings → General → Login Items."
+            }
         } catch {
-            openAtLogin = SMAppService.mainApp.status == .enabled
             testResult = "Couldn't change the login setting: \(error.localizedDescription)"
+            let now = SMAppService.mainApp.status
+            openAtLogin = now == .enabled || now == .requiresApproval
         }
     }
 }

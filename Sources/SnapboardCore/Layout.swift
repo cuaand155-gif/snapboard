@@ -22,7 +22,7 @@ public enum SplitAxis: String, Codable, Equatable {
 public typealias NodePath = [Int]
 
 /// A divider the editor can drag: which split it belongs to, its axis and where it is drawn.
-public struct Divider: Equatable {
+public struct LayoutDivider: Equatable {
     public let path: NodePath
     public let axis: SplitAxis
     /// The divider line in unit space (zero width for `.sideBySide`, zero height for `.stacked`).
@@ -54,13 +54,13 @@ public extension LayoutNode {
     var zoneCount: Int { zones().count }
 
     /// Every divider, for the editor.
-    func dividers(in rect: CGRect = LayoutNode.unit, path: NodePath = []) -> [Divider] {
+    func dividers(in rect: CGRect = LayoutNode.unit, path: NodePath = []) -> [LayoutDivider] {
         guard case let .split(axis, ratio, first, second) = self else { return [] }
         let (a, b) = Self.divide(rect, axis: axis, ratio: ratio)
         let line: CGRect = axis == .sideBySide
             ? CGRect(x: a.maxX, y: rect.minY, width: 0, height: rect.height)
             : CGRect(x: rect.minX, y: a.maxY, width: rect.width, height: 0)
-        return [Divider(path: path, axis: axis, line: line, bounds: rect)]
+        return [LayoutDivider(path: path, axis: axis, line: line, bounds: rect)]
             + first.dividers(in: a, path: path + [0])
             + second.dividers(in: b, path: path + [1])
     }
@@ -92,7 +92,7 @@ public extension LayoutNode {
     }
 
     /// The ratio a divider should take when dragged to `point` (unit space).
-    static func ratio(for divider: Divider, draggedTo point: CGPoint) -> Double {
+    static func ratio(for divider: LayoutDivider, draggedTo point: CGPoint) -> Double {
         let b = divider.bounds
         let raw = divider.axis == .sideBySide
             ? Double((point.x - b.minX) / max(b.width, 0.0001))

@@ -67,12 +67,12 @@ This needs the Lifeboard update that adds the widget feed, plus a `WIDGET_TOKEN`
 
 The token is kept in your Mac's Keychain, never in a file. Snapboard only reads from Lifeboard and can't change anything there. If you're offline, the widgets keep showing the last update.
 
-**Now playing** reads Spotify or Apple Music. The first time, macOS asks whether Snapboard may talk to them: say OK. It never opens or controls them.
+**Now playing** reads Spotify or Apple Music, but only while that widget is on your desktop and only if the app is already open. The first time, macOS asks whether Snapboard may talk to it: say OK. It never opens or controls them.
 
 ## Good to know
 
 - **Open at login:** Settings → **Open Snapboard when I log in**.
-- **Permission asked again after a rebuild:** each new build counts as a new app to macOS, so you may need to switch Snapboard off and on again under Accessibility. A paid Apple Developer membership would stop this; for now it's a quick toggle.
+- **After building a new version:** macOS treats each new build as a different app, so snapping stops working even though Snapboard still looks switched on. Fix it once per new build: System Settings → Privacy & Security → Accessibility, select **Snapboard**, press the **–** button, then open Snapboard again and allow it when asked. A paid Apple Developer membership would stop this.
 - **Windows that won't resize:** some apps have fixed-size windows. They move into the zone but keep their own size.
 - **Settings file:** your layouts and widget positions are saved in `~/Library/Application Support/Snapboard/settings.json`. Deleting it resets Snapboard.
 

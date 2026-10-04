@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import SnapboardCore
 
@@ -38,7 +39,12 @@ final class WidgetManager: NSObject, NSWindowDelegate {
     func start() {
         for kind in WidgetKind.allCases where AppModel.shared.state.widgets[kind.rawValue] != nil { show(kind) }
         feed.start()
-        music.start()
+        updateMusic()
+    }
+
+    /// Now playing only checks the music apps while its widget is on the desktop.
+    private func updateMusic() {
+        if panels[.nowPlaying] != nil { music.start() } else { music.stop() }
     }
 
     func isShown(_ kind: WidgetKind) -> Bool { panels[kind] != nil }
@@ -58,6 +64,7 @@ final class WidgetManager: NSObject, NSWindowDelegate {
         panels[kind]?.orderOut(nil)
         panels[kind] = nil
         AppModel.shared.state.widgets[kind.rawValue] = nil
+        updateMusic()
     }
 
     /// After screens change (a monitor unplugged), pull any widget that is now off-screen back on.
@@ -88,6 +95,7 @@ final class WidgetManager: NSObject, NSWindowDelegate {
         p.setFrame(saved, display: true)
         p.orderFrontRegardless()
         panels[kind] = p
+        updateMusic()
     }
 
     // Lines a widget up once the mouse is let go, not while it is still being dragged.
@@ -161,36 +169,52 @@ final class FeedModel: ObservableObject {
     }
 }
 
-/// What Spotify or Apple Music is playing, checked every 5 seconds. macOS asks once for
-/// permission to talk to those apps; neither is ever opened by this.
+/// What Spotify or Apple Music is playing, checked every 5 seconds while the Now playing
+/// widget is shown. An app is only asked if it is already running, so neither is ever opened,
+/// and macOS asks for permission only once that widget is in use.
 final class NowPlayingModel: ObservableObject {
     @Published var line: String?
     private var timer: Timer?
 
-    private static let script = NSAppleScript(source: """
-    if application "Spotify" is running then
-        tell application "Spotify"
-            if player state is playing then return (name of current track) & " — " & (artist of current track)
-        end tell
-    end if
-    if application "Music" is running then
-        tell application "Music"
-            if player state is playing then return (name of current track) & " — " & (artist of current track)
-        end tell
-    end if
-    return ""
-    """)
+    private static let players: [(bundleID: String, name: String)] = [
+        ("com.spotify.client", "Spotify"),
+        ("com.apple.Music", "Music")
+    ]
+    private var scripts: [String: NSAppleScript] = [:]
 
     func start() {
-        timer?.invalidate()
+        guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.check() }
         check()
     }
 
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        line = nil
+    }
+
     private func check() {
-        var err: NSDictionary?
-        let out = Self.script?.executeAndReturnError(&err).stringValue ?? ""
-        line = out.isEmpty ? nil : out
+        for player in Self.players
+        where !NSRunningApplication.runningApplications(withBundleIdentifier: player.bundleID).isEmpty {
+            if let out = script(for: player.name)?.executeAndReturnError(nil).stringValue, !out.isEmpty {
+                line = out
+                return
+            }
+        }
+        line = nil
+    }
+
+    private func script(for app: String) -> NSAppleScript? {
+        if let s = scripts[app] { return s }
+        let s = NSAppleScript(source: """
+        tell application "\(app)"
+            if player state is playing then return (name of current track) & " — " & (artist of current track)
+        end tell
+        return ""
+        """)
+        scripts[app] = s
+        return s
     }
 }
 
