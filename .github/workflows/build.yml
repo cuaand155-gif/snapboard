@@ -1,0 +1,28 @@
+name: Build Snapboard
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Swift version
+        run: swift --version
+      - name: Run the core tests
+        run: swift test
+      - name: Build Snapboard.app (works on Apple-silicon and Intel Macs)
+        run: UNIVERSAL=1 ./scripts/build-app.sh
+      - name: Zip the app
+        run: cd build && ditto -c -k --keepParent Snapboard.app Snapboard.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Snapboard
+          path: build/Snapboard.zip
+          retention-days: 30
