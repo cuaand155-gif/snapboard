@@ -8,12 +8,12 @@ ARCH_FLAGS=()
 if [ "${UNIVERSAL:-0}" = "1" ]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
 
 echo "Building Snapboard (this takes a minute the first time)…"
-swift build -c release "${ARCH_FLAGS[@]}"
+swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 
 APP="build/Snapboard.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$(swift build -c release "${ARCH_FLAGS[@]}" --show-bin-path)/Snapboard" "$APP/Contents/MacOS/Snapboard"
+cp "$(swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)/Snapboard" "$APP/Contents/MacOS/Snapboard"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
