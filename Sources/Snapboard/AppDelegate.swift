@@ -128,6 +128,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             keys.submenu = ksub
             menu.addItem(keys)
         }
+        menu.addItem(item("Open Lifeboard") { [weak self] in
+            if !AppModel.shared.openLifeboard() { self?.openSettings() }   // no address yet: add it first
+        })
         menu.addItem(item("Settings…") { [weak self] in self?.openSettings() })
         menu.addItem(.separator())
         menu.addItem(item("Quit Snapboard") { NSApp.terminate(nil) })

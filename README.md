@@ -65,6 +65,8 @@ This needs the Lifeboard update that adds the widget feed, plus a `WIDGET_TOKEN`
 3. **Widget token**: the same characters you saved as `WIDGET_TOKEN` in Vercel.
 4. Press **Save and test connection**. It should say **Connected**.
 
+Once the address is saved, **Open Lifeboard** in the menu (or the ↗ button on the Lifeboard widget) opens your site in the browser.
+
 The token is kept in your Mac's Keychain, never in a file. Snapboard only reads from Lifeboard and can't change anything there. If you're offline, the widgets keep showing the last update.
 
 **Now playing** reads Spotify or Apple Music, but only while that widget is on your desktop and only if the app is already open. The first time, macOS asks whether Snapboard may talk to it: say OK. It never opens or controls them.

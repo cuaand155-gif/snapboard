@@ -48,11 +48,20 @@ public func screenKey(name: String, size: CGSize) -> String {
 
 /// Turns "lifeboard.vercel.app", "https://x.app/" or "https://x.app/today" into the widget feed URL.
 public func feedURL(from base: String) -> URL? {
+    lifeboardURL(from: base, path: "/api/widgets")
+}
+
+/// Lifeboard's home page, for the "Open Lifeboard" button.
+public func lifeboardHomeURL(from base: String) -> URL? {
+    lifeboardURL(from: base, path: "/")
+}
+
+private func lifeboardURL(from base: String, path: String) -> URL? {
     var s = base.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !s.isEmpty else { return nil }
     if !s.lowercased().hasPrefix("http://") && !s.lowercased().hasPrefix("https://") { s = "https://" + s }
     guard var c = URLComponents(string: s), c.host?.isEmpty == false else { return nil }
-    c.path = "/api/widgets"
+    c.path = path
     c.query = nil
     c.fragment = nil
     return c.url

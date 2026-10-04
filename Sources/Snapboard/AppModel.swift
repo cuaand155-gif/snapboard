@@ -33,6 +33,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Opens Lifeboard in the browser.
+    /// Returns false when there is no address.
+    @discardableResult
+    func openLifeboard() -> Bool {
+        guard let url = lifeboardHomeURL(from: state.lifeboardURL) else { return false }
+        NSWorkspace.shared.open(url)
+        return true
+    }
+
     func layout(for screen: NSScreen) -> LayoutNode { state.layout(for: screen.snapKey) }
     func setLayout(_ layout: LayoutNode, for screen: NSScreen) { state.layouts[screen.snapKey] = layout }
 }

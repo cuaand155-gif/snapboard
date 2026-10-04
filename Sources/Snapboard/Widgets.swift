@@ -233,6 +233,7 @@ struct WidgetShell: View {
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
             .contextMenu {
                 if kind == .lifeboard || kind == .weather { Button("Refresh now") { feed.refresh() } }
+                Button("Open Lifeboard") { _ = AppModel.shared.openLifeboard() }
                 Button("Remove widget", action: onRemove)
             }
     }
@@ -263,7 +264,13 @@ struct LifeboardWidget: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(FeedText.tasksHeadline(feed.feed?.tasks)).font(.headline)
+            HStack {
+                Text(FeedText.tasksHeadline(feed.feed?.tasks)).font(.headline)
+                Spacer()
+                Button { _ = AppModel.shared.openLifeboard() } label: { Image(systemName: "arrow.up.right.square") }
+                    .buttonStyle(.plain)
+                    .help("Open Lifeboard")
+            }
             ForEach(feed.feed?.tasks?.items.prefix(4).map { $0 } ?? []) { t in
                 Text("\(t.doing ? "▸" : "•") \(t.title)").font(.callout).lineLimit(1)
             }

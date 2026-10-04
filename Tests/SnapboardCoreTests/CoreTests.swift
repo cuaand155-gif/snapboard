@@ -163,6 +163,12 @@ final class FeedTests: XCTestCase {
         XCTAssertNil(feedURL(from: "https://"))
     }
 
+    func testLifeboardHomeURL() {
+        XCTAssertEqual(lifeboardHomeURL(from: "lifeboard-cuacua.vercel.app")?.absoluteString, "https://lifeboard-cuacua.vercel.app/")
+        XCTAssertEqual(lifeboardHomeURL(from: "https://x.app/today?a=1")?.absoluteString, "https://x.app/")
+        XCTAssertNil(lifeboardHomeURL(from: "  "))
+    }
+
     func testScreenKeyIncludesTheSize() {
         XCTAssertEqual(screenKey(name: "Built-in Retina Display", size: CGSize(width: 1512, height: 982)),
                        "Built-in Retina Display 1512x982")
