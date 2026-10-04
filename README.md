@@ -9,33 +9,30 @@ It's version 0.1, so expect rough edges. Tell Claude what feels wrong.
 
 ---
 
-## 1. Get it onto your Mac (once)
+## 1. Download the app (easiest)
 
-You need **Xcode**, Apple's free app for building Mac apps.
+GitHub builds Snapboard for you every time the code changes. No Xcode needed.
 
-1. Open the **App Store**, search for **Xcode**, and install it. It's large, so this can take a while.
-2. Open Xcode once, accept the licence, let it finish installing its extras, then quit it.
-3. On GitHub, open **cuaand155-gif/snapboard**, click the green **Code** button, then **Download ZIP**.
-4. Double-click the ZIP in your Downloads folder to unzip it. You get a folder called `snapboard` (maybe with a branch name added to the end).
+1. Open **github.com/cuaand155-gif/snapboard/actions** and click the newest run with a green tick.
+2. Scroll to **Artifacts** at the bottom and click **Snapboard** to download it.
+3. In Downloads, double-click the downloaded ZIP, then double-click the **Snapboard.zip** inside it. You now have **Snapboard.app**.
+4. Drag **Snapboard.app** into your **Applications** folder.
 
-## 2. Build the app
+It runs on both newer (Apple silicon) and older (Intel) Macs.
 
-1. Open **Terminal** (press ⌘-Space, type *Terminal*, press Return).
-2. Type `cd ` (with a space after it), drag the `snapboard` folder from Finder into the Terminal window, then press Return.
-3. Paste this and press Return:
+## 2. Or build it yourself (only if you want to)
 
-   ```bash
-   ./scripts/build-app.sh
-   ```
+You need **Xcode** from the App Store (open it once and accept the licence). Then download the code (**Code → Download ZIP** on GitHub), open **Terminal**, type `cd `, drag the unzipped `snapboard` folder in, press Return, and run:
 
-4. Wait until it says **Done**. The app is now in the `build` folder inside `snapboard`.
-5. Drag **Snapboard.app** from that `build` folder into your **Applications** folder.
+```bash
+./scripts/build-app.sh
+```
 
-If it stops with an error instead, copy everything Terminal printed and paste it to Claude.
+The app appears in the `build` folder. If it stops with an error, copy everything Terminal printed and paste it to Claude.
 
 ## 3. First launch
 
-1. Open **Snapboard** from Applications. If macOS says it's from an unidentified developer, right-click the app, choose **Open**, then **Open** again. You only do this once.
+1. Open **Snapboard** from Applications. macOS will say it can't check the app, because it isn't from the App Store. Press **Done**, then go to **System Settings → Privacy & Security**, scroll down, and press **Open Anyway** next to the Snapboard message. Confirm with your password. You only do this once per new version.
 2. A welcome window asks for one permission. Press **Open Accessibility settings**, then switch **Snapboard** on in the list. The welcome window closes by itself.
 3. Look for the new icon in your menu bar (two side-by-side rectangles). Everything is in that menu.
 
