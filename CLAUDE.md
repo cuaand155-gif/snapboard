@@ -2,6 +2,8 @@
 
 Snapboard is Alexi's personal macOS menu bar app: drag a window with Shift held to snap it into zones she draws per screen, plus desktop widgets (clock, Lifeboard today, weather, now playing). Spec: the "Snap + Widgets for Mac — Product Spec" Claude doc. The owner isn't a developer: keep `README.md` click-by-click and all on-screen text in plain language.
 
+Before project work, read the canonical [Snapboard project packet](https://github.com/cuaand155-gif/ai-system/blob/main/docs/projects/snapboard/packet.md) in `ai-system` and any project files it links. Check Life Hub for live tasks and status. If a source is unavailable, report it as unverified rather than assuming its contents.
+
 ## Layout
 
 - `Sources/SnapboardCore/` — pure logic, no AppKit: zone layouts as a split tree in unit space (y down), coordinate conversion (unit / AppKit / Accessibility), the widget grid, saved state, and the Lifeboard feed model. Put new decision logic here with a test in `Tests/SnapboardCoreTests/`.
