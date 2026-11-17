@@ -12,6 +12,9 @@ struct WorkspaceEditorView: View {
     @State private var linkTitle = ""
     @State private var linkAddress = ""
     @State private var errorMessage: String?
+    @State private var applyLayouts = true
+    @State private var launchItems = false
+    @State private var activateSurfaces = true
 
     private var selectedWorkspace: Workspace? {
         model.state.workspaces.first { $0.id == selectedID }
@@ -86,12 +89,35 @@ struct WorkspaceEditorView: View {
     private func workspaceDetails(_ workspace: Workspace) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(workspace.name).font(.title2.bold())
-            Text("Switching to this workspace applies its saved zones. It does not move open windows or change the macOS Dock.")
+            Text("Choose what switching to this workspace will change. Open windows and the macOS Dock stay as they are.")
                 .foregroundStyle(.secondary)
 
+            GroupBox("Activation preview") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Apply saved zones on \(workspace.layouts.count) screen(s)", isOn: $applyLayouts)
+                    let itemCount = Set(workspace.items.map(\.target)).union(model.state.libraryItems
+                        .filter { $0.workspaceIDs.contains(workspace.id) }.map(\.target)).count
+                    Toggle("Open \(itemCount) saved item(s)", isOn: $launchItems)
+                        .disabled(itemCount == 0)
+                    let surfaceCount = model.state.customDocks.filter { $0.workspaceIDs.contains(workspace.id) }.count
+                        + model.state.menuGroups.filter { $0.workspaceIDs.contains(workspace.id) }.count
+                    Toggle("Show \(surfaceCount) workspace surface(s)", isOn: $activateSurfaces)
+                        .disabled(surfaceCount == 0)
+                    Text("Only the selected parts change. A missing item produces an error without removing your saved configuration.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .padding(6)
+            }
+
             HStack {
-                Button("Use workspace") {
-                    if !model.activateWorkspace(workspace.id) { errorMessage = "This workspace no longer exists." }
+                Button("Activate selected parts") {
+                    guard let errors = model.activateWorkspace(workspace.id, applyLayouts: applyLayouts,
+                                                              launchItems: launchItems,
+                                                              activateSurfaces: activateSurfaces) else {
+                        errorMessage = "This workspace no longer exists."
+                        return
+                    }
+                    if !errors.isEmpty { errorMessage = errors.joined(separator: "\n") }
                 }
                 Button("Update saved layouts from current screens") {
                     if !model.updateWorkspaceLayouts(workspace.id) { errorMessage = "This workspace no longer exists." }
@@ -109,7 +135,11 @@ struct WorkspaceEditorView: View {
 
             Divider()
             Text("Saved apps and links").font(.headline)
-            if workspace.items.isEmpty {
+            let linkedItems = model.state.libraryItems.filter { item in
+                item.workspaceIDs.contains(workspace.id) &&
+                    !workspace.items.contains { $0.kind.rawValue == item.kind.rawValue && $0.target == item.target }
+            }
+            if workspace.items.isEmpty && linkedItems.isEmpty {
                 Text("No apps or links yet. Add one below to open it from this workspace.")
                     .foregroundStyle(.secondary)
             } else {
@@ -126,6 +156,31 @@ struct WorkspaceEditorView: View {
                             model.removeItem(savedItem.id, from: workspace.id)
                         }
                         .accessibilityLabel("Remove \(savedItem.title) from \(workspace.name)")
+                    }
+                }
+                ForEach(linkedItems) { item in
+                    HStack {
+                        Image(systemName: item.kind == .link ? "link" : item.kind == .folder ? "folder" : "app")
+                            .accessibilityHidden(true)
+                        Text(item.title).lineLimit(1)
+                        Spacer()
+                        Button("Open") {
+                            errorMessage = model.openLibraryItem(item, onAction: { id in
+                                guard let action = model.state.savedActions.first(where: { $0.id == id }) else {
+                                    errorMessage = "That action is no longer available."
+                                    return
+                                }
+                                errorMessage = AutomationRuntime.shared.run(action)
+                            })
+                        }
+                        Button("Remove") {
+                            var next = model.state
+                            if let index = next.libraryItems.firstIndex(where: { $0.id == item.id }) {
+                                next.libraryItems[index].workspaceIDs.removeAll { $0 == workspace.id }
+                                model.state = next
+                            }
+                        }
+                        .accessibilityLabel("Remove \(item.title) from \(workspace.name)")
                     }
                 }
             }

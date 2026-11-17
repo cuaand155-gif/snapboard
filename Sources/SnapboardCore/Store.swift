@@ -15,6 +15,16 @@ public struct SavedState: Codable, Equatable {
     public var lifeboardURL = ""
     public var workspaces: [Workspace] = []
     public var activeWorkspaceID: UUID? = nil
+    /// The workspace whose dock and menu group associations are visible.
+    public var surfaceWorkspaceID: UUID? = nil
+    /// One item can appear in several workspaces and surfaces without copying its data.
+    public var libraryItems: [LibraryItem] = []
+    public var launcherGroups: [LauncherGroup] = []
+    public var savedActions: [SavedAction] = []
+    public var automationRules: [AutomationRule] = []
+    public var customDocks: [CustomDock] = []
+    public var menuGroups: [MenuGroup] = []
+    public var dockPresets: [DockPreset] = []
 
     public init() {}
 
@@ -34,6 +44,15 @@ public struct SavedState: Codable, Equatable {
         // An absent key is from older settings; present null or malformed workspaces must fail.
         workspaces = c.contains(.workspaces) ? try c.decode([Workspace].self, forKey: .workspaces) : []
         activeWorkspaceID = try c.decodeIfPresent(UUID.self, forKey: .activeWorkspaceID)
+        surfaceWorkspaceID = try c.decodeIfPresent(UUID.self, forKey: .surfaceWorkspaceID)
+        libraryItems = c.contains(.libraryItems) ? try c.decode([LibraryItem].self, forKey: .libraryItems) : []
+        launcherGroups = c.contains(.launcherGroups) ? try c.decode([LauncherGroup].self, forKey: .launcherGroups) : []
+        savedActions = c.contains(.savedActions) ? try c.decode([SavedAction].self, forKey: .savedActions) : []
+        automationRules = c.contains(.automationRules) ? try c.decode([AutomationRule].self, forKey: .automationRules) : []
+        customDocks = c.contains(.customDocks) ? try c.decode([CustomDock].self, forKey: .customDocks) : []
+        menuGroups = c.contains(.menuGroups) ? try c.decode([MenuGroup].self, forKey: .menuGroups) : []
+        dockPresets = c.contains(.dockPresets) ? try c.decode([DockPreset].self, forKey: .dockPresets) : []
+        libraryItems = LibraryItem.addingLegacyWorkspaceItems(from: workspaces, to: libraryItems)
     }
 }
 

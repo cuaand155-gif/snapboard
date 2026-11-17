@@ -20,8 +20,9 @@ final class Hotkeys {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
             var id = EventHotKeyID()
-            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
-                              nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            let result = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                           nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            guard result == noErr, id.signature == OSType(0x534E_4150) else { return OSStatus(eventNotHandledErr) }
             let index = Int(id.id)
             if Hotkeys.bindings.indices.contains(index) {
                 DispatchQueue.main.async { Hotkeys.bindings[index].action.apply() }

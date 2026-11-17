@@ -91,12 +91,39 @@ final class AppModel: ObservableObject {
     }
 
     func activateWorkspace(_ id: UUID) -> Bool {
-        guard let workspace = state.workspaces.first(where: { $0.id == id }) else { return false }
+        activateWorkspace(id, applyLayouts: true, launchItems: false, activateSurfaces: true) != nil
+    }
+
+    /// Applies only the parts chosen in the activation preview. Nothing closes running apps.
+    /// Returns nil if the workspace vanished, otherwise any item launch errors.
+    func activateWorkspace(_ id: UUID, applyLayouts: Bool, launchItems: Bool,
+                           activateSurfaces: Bool) -> [String]? {
+        guard let workspace = state.workspaces.first(where: { $0.id == id }) else { return nil }
         var next = state
-        next.layouts.merge(workspace.layouts) { _, saved in saved }
+        if applyLayouts { next.layouts.merge(workspace.layouts) { _, saved in saved } }
+        if activateSurfaces { next.surfaceWorkspaceID = id }
         next.activeWorkspaceID = id
         state = next
-        return true
+        guard launchItems else { return [] }
+        var errors: [String] = []
+        var openedTargets = Set<String>()
+        for item in workspace.items {
+            openedTargets.insert("\(item.kind.rawValue):\(item.target)")
+            if let error = openWorkspaceItem(item) { errors.append(error) }
+        }
+        for item in next.libraryItems where item.workspaceIDs.contains(id) {
+            guard openedTargets.insert("\(item.kind.rawValue):\(item.target)").inserted else { continue }
+            var actionError: String?
+            let error = openLibraryItem(item, onAction: { actionID in
+                guard let action = next.savedActions.first(where: { $0.id == actionID }) else {
+                    actionError = "The action for \(item.title) is missing."
+                    return
+                }
+                actionError = AutomationRuntime.shared.run(action)
+            })
+            if let error = error ?? actionError { errors.append(error) }
+        }
+        return errors
     }
 
     func updateWorkspaceLayouts(_ id: UUID) -> Bool {
@@ -114,9 +141,11 @@ final class AppModel: ObservableObject {
         }
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return "This workspace no longer exists." }
         var next = state
-        next.workspaces[index].items.append(WorkspaceItem(kind: .application,
-                                                         title: url.deletingPathExtension().lastPathComponent,
-                                                         target: url.path))
+        let item = WorkspaceItem(kind: .application,
+                                 title: url.deletingPathExtension().lastPathComponent,
+                                 target: url.path)
+        next.workspaces[index].items.append(item)
+        associate(item, with: id, in: &next)
         state = next
         return nil
     }
@@ -130,9 +159,11 @@ final class AppModel: ObservableObject {
         guard let index = state.workspaces.firstIndex(where: { $0.id == id }) else { return "This workspace no longer exists." }
         let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
         var next = state
-        next.workspaces[index].items.append(WorkspaceItem(kind: .link,
-                                                         title: label.isEmpty ? (url.host ?? trimmed) : label,
-                                                         target: trimmed))
+        let item = WorkspaceItem(kind: .link,
+                                 title: label.isEmpty ? (url.host ?? trimmed) : label,
+                                 target: trimmed)
+        next.workspaces[index].items.append(item)
+        associate(item, with: id, in: &next)
         state = next
         return nil
     }
@@ -140,8 +171,29 @@ final class AppModel: ObservableObject {
     func removeItem(_ itemID: UUID, from workspaceID: UUID) {
         guard let index = state.workspaces.firstIndex(where: { $0.id == workspaceID }) else { return }
         var next = state
+        guard let item = next.workspaces[index].items.first(where: { $0.id == itemID }) else { return }
         next.workspaces[index].items.removeAll { $0.id == itemID }
+        if !next.workspaces[index].items.contains(where: { $0.kind == item.kind && $0.target == item.target }),
+           let libraryIndex = next.libraryItems.firstIndex(where: {
+               $0.kind.rawValue == item.kind.rawValue && $0.target == item.target
+           }) {
+            next.libraryItems[libraryIndex].workspaceIDs.removeAll { $0 == workspaceID }
+        }
         state = next
+    }
+
+    private func associate(_ item: WorkspaceItem, with workspaceID: UUID, in next: inout SavedState) {
+        if let index = next.libraryItems.firstIndex(where: {
+            $0.kind.rawValue == item.kind.rawValue && $0.target == item.target
+        }) {
+            if !next.libraryItems[index].workspaceIDs.contains(workspaceID) {
+                next.libraryItems[index].workspaceIDs.append(workspaceID)
+            }
+        } else {
+            let kind: SnapboardCore.LibraryItem.Kind = item.kind == .application ? .application : .link
+            next.libraryItems.append(SnapboardCore.LibraryItem(id: item.id, kind: kind, title: item.title,
+                                                 target: item.target, workspaceIDs: [workspaceID]))
+        }
     }
 
     func openWorkspaceItem(_ item: WorkspaceItem) -> String? {
