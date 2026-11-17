@@ -1,11 +1,16 @@
 # Snapboard
 
-A small Mac app that lives in your menu bar. It does two things:
+A Mac menu bar app for arranging windows and setting up a workspace. Its main areas are:
 
 1. **Snaps windows into zones you draw.** Hold **Shift** while dragging a window: your zones light up, and the window fills whichever zone you let go over. Dragging without Shift works exactly as before.
 2. **Shows desktop widgets.** A clock, your **Lifeboard** tasks and medication times, the weather, and what's playing. They sit on your desktop, under your normal windows.
+3. **Saves workspaces and a shared library.** Keep apps, links, folders, and actions in one library. Arrange launcher pages and choose which items belong to each workspace.
+4. **Runs actions and keyboard triggers.** Build a sequence that opens saved items, switches workspaces, or snaps the front window. Assign an enabled action to a keyboard shortcut.
+5. **Adds custom surfaces.** Put library items in floating docks and menu groups, with optional workspace and display choices.
+6. **Saves native Dock presets.** Capture the Mac Dock's apps, folders, position, size, and visibility, preview a preset, and apply it with a confirmation. Snapboard keeps a snapshot for a one-step restore.
+7. **Records the screen.** Choose a display or window, optionally include a webcam corner and audio, then trim and export a `.mov` file.
 
-It's version 0.1, so expect rough edges. Tell Claude what feels wrong.
+These areas are being developed together. The current build has focused versions of each feature, not every setting from the apps that inspired them.
 
 ---
 
@@ -33,7 +38,7 @@ The app appears in the `build` folder. If it stops with an error, copy everythin
 ## 3. First launch
 
 1. Open **Snapboard** from Applications. macOS will say it can't check the app, because it isn't from the App Store. Press **Done**, then go to **System Settings → Privacy & Security**, scroll down, and press **Open Anyway** next to the Snapboard message. Confirm with your password. You only do this once per new version.
-2. A welcome window asks for one permission. Press **Open Accessibility settings**, then switch **Snapboard** on in the list. The welcome window closes by itself.
+2. A welcome window asks for Accessibility permission to move windows. Press **Open Accessibility settings**, then switch **Snapboard** on in the list. The welcome window closes by itself. Recording and webcam access are requested separately when you use those features.
 3. Look for the new icon in your menu bar (two side-by-side rectangles). Everything is in that menu.
 
 ## Using it
@@ -63,6 +68,36 @@ A workspace saves the zone layouts on your connected screens and a list of apps 
 6. After changing your zones, select the workspace and click **Update saved layouts from current screens** to save those changes into it. Zone changes are not copied into a workspace automatically.
 
 If an app was moved or removed, Snapboard says it cannot open it. Remove the old entry and add the app from its current location. Links must begin with `http://` or `https://`.
+
+### Library and launcher
+
+1. Menu bar icon → **Library and launcher…**. Save an app, link, folder, or action. Add tags to find it later and select the workspaces where it belongs.
+2. Choose **Launcher** at the top to make pages and place saved items on them. Open an item from the library or launcher.
+3. Use **Export…** for a JSON copy of your library or **Import…** to add items from one. Check the imported items before opening them.
+
+### Actions and triggers
+
+1. Menu bar icon → **Automation…** → **New action**. Add steps in the order you want them to run, such as opening a saved item, switching a workspace, opening a link, or snapping the front window.
+2. Press **Run** to try the action. Under **Keyboard triggers**, add a shortcut for it. A warning appears if it conflicts with another enabled trigger or a built-in shortcut.
+3. **Settings… → Keyboard shortcuts** controls whether saved keyboard triggers are active. The setting takes effect when you close Settings. Actions remain available in the library when shortcuts are off.
+
+### Custom surfaces
+
+1. Menu bar icon → **Custom surfaces → Manage docks and groups…** to add a floating dock or a menu group. Choose its items from the shared library and, if useful, associate it with workspaces.
+2. For a floating dock, choose an edge and display and whether to hide it until hovered. Menu groups appear under **Custom surfaces**; **Search menu items…** opens the picker.
+
+### Native Dock presets
+
+1. Menu bar icon → **Dock presets…** → **Capture current Dock**. Select a saved preset to preview the differences.
+2. Press **Apply preset…** and confirm to change the macOS Dock. **Restore previous Dock…** returns to the snapshot Snapboard saved just before the last apply.
+
+### Screen recording
+
+1. Menu bar icon → **Record screen…**. Choose a display or window. Choose cursor, audio, webcam corner, and center zoom options before starting.
+2. Press **Start recording**. The menu bar icon turns red while recording; open the menu to stop it even if you closed the recorder window.
+3. Adjust the start and end trim points, then press **Export…** and choose where to save the `.mov` file. If you do not want the capture, use **Discard…**. Snapboard keeps running until an active or pending capture is resolved.
+
+macOS may request Screen Recording, Microphone, and Camera access when you use those inputs. Declining an optional input leaves the rest of the app available.
 
 **Widgets:** menu bar icon → **Widgets** → pick one to add it, or pick it again to remove it. Drag a widget anywhere and it lines up neatly on an invisible grid. Right-click a widget for **Remove widget** (and **Refresh now** on the Lifeboard and weather widgets).
 

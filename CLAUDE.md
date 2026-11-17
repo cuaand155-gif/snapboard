@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-Snapboard is Alexi's personal macOS menu bar app: drag a window with Shift held to snap it into zones she draws per screen, plus desktop widgets (clock, Lifeboard today, weather, now playing). Spec: the "Snap + Widgets for Mac — Product Spec" Claude doc. The owner isn't a developer: keep `README.md` click-by-click and all on-screen text in plain language.
+Snapboard is Alexi's personal macOS menu bar app: Shift-drag window snapping, desktop widgets, workspaces, a shared item library and launcher, action sequences and keyboard triggers, custom floating docks and menu groups, native Dock presets, and screen recording. The owner isn't a developer: keep `README.md` click-by-click and all on-screen text in plain language.
 
 Before project work, read the canonical [Snapboard project packet](https://github.com/cuaand155-gif/ai-system/blob/main/docs/projects/snapboard/packet.md) in `ai-system` and any project files it links. Check Life Hub for live tasks and status. If a source is unavailable, report it as unverified rather than assuming its contents.
 
 ## Layout
 
-- `Sources/SnapboardCore/` — pure logic, no AppKit: zone layouts as a split tree in unit space (y down), coordinate conversion (unit / AppKit / Accessibility), the widget grid, saved state, and the Lifeboard feed model. Put new decision logic here with a test in `Tests/SnapboardCoreTests/`.
-- `Sources/Snapboard/` — the app: `AppDelegate` (menu bar, first launch), `Snapper` (Shift-drag snapping), `ZoneOverlay`, `LayoutEditor` (SwiftUI), `Hotkeys` (Carbon, ⌃⌥ + arrows/Return), `WindowMover` (Accessibility API), `Widgets` (panels at desktop level, feed, now playing), `SettingsView`, `AppModel` (settings JSON + Keychain).
+- `Sources/SnapboardCore/` — pure logic, no AppKit: layouts, widget grid, saved state, item library, actions, surface definitions, Dock snapshots, and Lifeboard feed model. Put new decision logic here with a test in `Tests/SnapboardCoreTests/`.
+- `Sources/Snapboard/` — the app: `AppDelegate` (menu bar, first launch), `Snapper` (Shift-drag snapping), `ZoneOverlay`, `LayoutEditor`, `Hotkeys`, `WindowMover`, `Widgets`, `SettingsView`, `AppModel`, and the library, automation, custom surfaces, Dock preset, and recording windows.
 - `scripts/build-app.sh` — builds `build/Snapboard.app` (Info.plist with `LSUIElement`, ad-hoc signed).
 
 ## Commands (on a Mac with Xcode)
@@ -17,7 +17,7 @@ swift test                    # core tests
 ./scripts/build-app.sh        # build the app
 ```
 
-Cloud sessions run on Linux without Swift, so code here can't be compiled or run there: say so, and have Alexi build on her Mac.
+The GitHub macOS workflow also runs tests and builds a universal app. On a Mac without full Xcode, SwiftPM may fail before compiling source; use the hosted macOS check for the release gate.
 
 ## Rules
 

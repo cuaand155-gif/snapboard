@@ -44,6 +44,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>NSHighResolutionCapable</key><true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Snapboard reads the song playing in Spotify or Music for the Now playing widget. It never controls them.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Snapboard can add your camera to screen recordings when you choose Webcam.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Snapboard can include your microphone in screen recordings when you choose Microphone.</string>
 </dict>
 </plist>
 PLIST
