@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private let widgets = WidgetManager()
     private let editor = LayoutEditorController()
     private var settingsWindow: NSWindow?
+    private var workspaceWindow: NSWindow?
     private var welcomeWindow: NSWindow?
     private var permissionTimer: Timer?
 
@@ -26,6 +27,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
                                                object: nil, queue: .main) { [weak self] _ in self?.widgets.screensChanged() }
 
         if WindowMover.isTrusted { startSnapping() } else { showWelcome() }
+        if let warning = AppModel.shared.launchWarning {
+            let alert = NSAlert()
+            alert.messageText = "Snapboard could not read saved settings"
+            alert.informativeText = warning
+            alert.addButton(withTitle: "OK")
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 
     // MARK: Permission and first launch
@@ -106,6 +115,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         menu.addItem(.separator())
 
+        let workspacesItem = NSMenuItem(title: "Workspaces", action: nil, keyEquivalent: "")
+        let workspaceMenu = NSMenu()
+        if state.workspaces.isEmpty {
+            let empty = NSMenuItem(title: "No workspaces saved", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            workspaceMenu.addItem(empty)
+        } else {
+            for workspace in state.workspaces {
+                let use = item(workspace.name) { [weak self] in
+                    if !AppModel.shared.activateWorkspace(workspace.id) {
+                        self?.showWorkspaceError("This workspace no longer exists.")
+                    }
+                }
+                use.state = state.activeWorkspaceID == workspace.id ? .on : .off
+                workspaceMenu.addItem(use)
+            }
+        }
+        if let active = state.workspaces.first(where: { $0.id == state.activeWorkspaceID }), !active.items.isEmpty {
+            workspaceMenu.addItem(.separator())
+            let openItem = NSMenuItem(title: "Open saved item", action: nil, keyEquivalent: "")
+            let openMenu = NSMenu()
+            for savedItem in active.items {
+                openMenu.addItem(item(savedItem.title) { [weak self] in
+                    if let error = AppModel.shared.openWorkspaceItem(savedItem) { self?.showWorkspaceError(error) }
+                })
+            }
+            openItem.submenu = openMenu
+            workspaceMenu.addItem(openItem)
+        }
+        workspaceMenu.addItem(.separator())
+        workspaceMenu.addItem(item("Manage workspaces…") { [weak self] in self?.openWorkspaces() })
+        workspacesItem.submenu = workspaceMenu
+        menu.addItem(workspacesItem)
+        menu.addItem(.separator())
+
         let widgetsItem = NSMenuItem(title: "Widgets", action: nil, keyEquivalent: "")
         let wsub = NSMenu()
         for kind in WidgetKind.allCases {
@@ -157,6 +201,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         }
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func openWorkspaces() {
+        if workspaceWindow == nil {
+            let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 680, height: 500),
+                                  styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            window.title = "Snapboard Workspaces"
+            window.contentView = NSHostingView(rootView: WorkspaceEditorView())
+            window.isReleasedWhenClosed = false
+            window.minSize = NSSize(width: 580, height: 420)
+            window.center()
+            workspaceWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        workspaceWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func showWorkspaceError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Snapboard could not open that item"
+        alert.informativeText = message
+        alert.runModal()
     }
 
     private func item(_ title: String, _ action: @escaping () -> Void) -> NSMenuItem {

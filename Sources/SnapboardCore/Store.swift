@@ -13,6 +13,8 @@ public struct SavedState: Codable, Equatable {
     public var shortcutsOn = true
     public var widgetGridOn = true
     public var lifeboardURL = ""
+    public var workspaces: [Workspace] = []
+    public var activeWorkspaceID: UUID? = nil
 
     public init() {}
 
@@ -29,6 +31,9 @@ public struct SavedState: Codable, Equatable {
         shortcutsOn = (try? c.decode(Bool.self, forKey: .shortcutsOn)) ?? true
         widgetGridOn = (try? c.decode(Bool.self, forKey: .widgetGridOn)) ?? true
         lifeboardURL = (try? c.decode(String.self, forKey: .lifeboardURL)) ?? ""
+        // An absent key is from older settings; present null or malformed workspaces must fail.
+        workspaces = c.contains(.workspaces) ? try c.decode([Workspace].self, forKey: .workspaces) : []
+        activeWorkspaceID = try c.decodeIfPresent(UUID.self, forKey: .activeWorkspaceID)
     }
 }
 

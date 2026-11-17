@@ -79,6 +79,42 @@ final class LayoutTests: XCTestCase {
         XCTAssertFalse(state.snappingOn)
         XCTAssertTrue(state.shortcutsOn)
         XCTAssertEqual(state.layout(for: "anything"), Preset.halves.layout)
+        XCTAssertTrue(state.workspaces.isEmpty)
+        XCTAssertNil(state.activeWorkspaceID)
+    }
+
+    func testWorkspaceLayoutsAndLaunchItemsSurviveSettingsRoundTrip() throws {
+        let workspaceID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let appID = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let linkID = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
+        let screen = "Built-in 1512x982"
+        var state = SavedState()
+        state.workspaces = [Workspace(
+            id: workspaceID,
+            name: "Research",
+            layouts: [screen: Preset.quarters.layout],
+            items: [
+                WorkspaceItem(id: appID, kind: .application, title: "Notes", target: "/Applications/Notes.app"),
+                WorkspaceItem(id: linkID, kind: .link, title: "Library", target: "https://example.org/library")
+            ]
+        )]
+        state.activeWorkspaceID = workspaceID
+
+        let decoded = try JSONDecoder().decode(SavedState.self, from: JSONEncoder().encode(state))
+        XCTAssertEqual(decoded.activeWorkspaceID, workspaceID)
+        XCTAssertEqual(decoded.workspaces.map(\.id), [workspaceID])
+        XCTAssertEqual(decoded.workspaces[0].name, "Research")
+        XCTAssertEqual(decoded.workspaces[0].layouts[screen], Preset.quarters.layout)
+        XCTAssertEqual(decoded.workspaces[0].items.map(\.id), [appID, linkID])
+        XCTAssertEqual(decoded.workspaces[0].items.map(\.kind), [.application, .link])
+        XCTAssertEqual(decoded.workspaces[0].items.map(\.target), ["/Applications/Notes.app", "https://example.org/library"])
+    }
+
+    func testMalformedWorkspaceDataDoesNotSilentlyDisappear() {
+        let malformed = #"{"layouts":{},"workspaces":{"name":"wrong shape"}}"#.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(SavedState.self, from: malformed))
+        let nullWorkspaces = #"{"layouts":{},"workspaces":null}"#.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(SavedState.self, from: nullWorkspaces))
     }
 }
 

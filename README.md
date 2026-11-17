@@ -51,6 +51,19 @@ The app appears in the `build` folder. If it stops with an error, copy everythin
 
 Each screen keeps its own layout. To switch quickly without editing, use **Quick layout** in the menu.
 
+### Workspaces
+
+A workspace saves the zone layouts on your connected screens and a list of apps or links you choose. Switching workspaces applies its saved zones for future snaps. It does not move windows that are already open, close apps, or change the macOS Dock.
+
+1. Set up your zones with **Edit layout…** or **Quick layout**.
+2. Click the Snapboard menu bar icon → **Workspaces** → **Manage workspaces…**.
+3. Type a name under **New workspace name**, then click **Save current layouts as workspace**.
+4. Select that workspace in the left list. Click **Add application…** to pick a `.app` in Finder, or enter a full `https://` link and click **Add link**. Apps and links stay saved until you click **Remove** beside one.
+5. Click **Use workspace**, or choose its name in the menu bar **Workspaces** submenu, to apply its saved zones. To open a saved app or link, click **Open** beside it in the editor, or use **Workspaces → Open saved item** for the current workspace. Switching a workspace does not automatically launch its items.
+6. After changing your zones, select the workspace and click **Update saved layouts from current screens** to save those changes into it. Zone changes are not copied into a workspace automatically.
+
+If an app was moved or removed, Snapboard says it cannot open it. Remove the old entry and add the app from its current location. Links must begin with `http://` or `https://`.
+
 **Widgets:** menu bar icon → **Widgets** → pick one to add it, or pick it again to remove it. Drag a widget anywhere and it lines up neatly on an invisible grid. Right-click a widget for **Remove widget** (and **Refresh now** on the Lifeboard and weather widgets).
 
 ## Connect Lifeboard (for the Lifeboard and weather widgets)
