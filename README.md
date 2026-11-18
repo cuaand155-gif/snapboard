@@ -10,7 +10,9 @@ A Mac menu bar app for arranging windows and setting up a workspace. Its main ar
 6. **Saves native Dock presets.** Capture the Mac Dock's apps, folders, position, size, and visibility, preview a preset, and apply it with a confirmation. Snapboard keeps a snapshot for a one-step restore.
 7. **Records the screen.** Choose a display or window, optionally include a webcam corner and audio, then trim and export a `.mov` file.
 
-These areas are being developed together. The current build has focused versions of each feature, not every setting from the apps that inspired them.
+8. **Vinyl turntable widget (inspired by Vinyl).** A live, animated rotating turntable on your desktop with vinyl groove reflections, live album art on the label, a physical tonearm that moves onto the record when music plays, playback controls, and transparent/solid deck options.
+9. **Drop shelf (inspired by Droppy).** Stash files, images, or text in a floating shelf docked below the notch/menu bar across spaces. Drag files out anywhere, or run quick actions: merge files into a PDF, convert images to PNG, or copy paths.
+10. **Fullscreen launcher (inspired by LaunchOS).** A full-screen Liquid Glass app launcher with instant keyboard search, high-res app icons, arrow-key navigation, and Return to launch.
 
 ---
 

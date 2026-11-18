@@ -4,7 +4,7 @@ import SwiftUI
 import SnapboardCore
 
 enum WidgetKind: String, CaseIterable, Identifiable {
-    case clock, lifeboard, weather, nowPlaying
+    case clock, lifeboard, weather, nowPlaying, vinyl
 
     var id: String { rawValue }
 
@@ -14,6 +14,7 @@ enum WidgetKind: String, CaseIterable, Identifiable {
         case .lifeboard: return "Lifeboard today"
         case .weather: return "Weather"
         case .nowPlaying: return "Now playing"
+        case .vinyl: return "Vinyl turntable"
         }
     }
 
@@ -23,6 +24,7 @@ enum WidgetKind: String, CaseIterable, Identifiable {
         case .lifeboard: return CGSize(width: 288, height: 200)
         case .weather: return CGSize(width: 240, height: 80)
         case .nowPlaying: return CGSize(width: 288, height: 72)
+        case .vinyl: return CGSize(width: 320, height: 320)
         }
     }
 }
@@ -44,7 +46,7 @@ final class WidgetManager: NSObject, NSWindowDelegate {
 
     /// Now playing only checks the music apps while its widget is on the desktop.
     private func updateMusic() {
-        if panels[.nowPlaying] != nil { music.start() } else { music.stop() }
+        if panels[.nowPlaying] != nil || panels[.vinyl] != nil { music.start() } else { music.stop() }
     }
 
     func isShown(_ kind: WidgetKind) -> Bool { panels[kind] != nil }
@@ -169,11 +171,17 @@ final class FeedModel: ObservableObject {
     }
 }
 
-/// What Spotify or Apple Music is playing, checked every 5 seconds while the Now playing
-/// widget is shown. An app is only asked if it is already running, so neither is ever opened,
-/// and macOS asks for permission only once that widget is in use.
+/// What Spotify or Apple Music is playing, checked every 3 seconds while Now Playing or
+/// Vinyl turntable is shown. Supports title, artist, album, artwork, and playback controls.
 final class NowPlayingModel: ObservableObject {
     @Published var line: String?
+    @Published var trackTitle = ""
+    @Published var artist = ""
+    @Published var album = ""
+    @Published var isPlaying = false
+    @Published var artworkImage: NSImage?
+    private var currentArtworkURL = ""
+    private var activePlayerName: String?
     private var timer: Timer?
 
     private static let players: [(bundleID: String, name: String)] = [
@@ -184,7 +192,7 @@ final class NowPlayingModel: ObservableObject {
 
     func start() {
         guard timer == nil else { return }
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.check() }
+        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in self?.check() }
         check()
     }
 
@@ -192,27 +200,132 @@ final class NowPlayingModel: ObservableObject {
         timer?.invalidate()
         timer = nil
         line = nil
+        isPlaying = false
+        artworkImage = nil
+        currentArtworkURL = ""
+    }
+
+    func playPause() {
+        guard let app = activePlayerName else { return }
+        let s = NSAppleScript(source: "tell application \"\(app)\" to playpause")
+        s?.executeAndReturnError(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.check() }
+    }
+
+    func nextTrack() {
+        guard let app = activePlayerName else { return }
+        let s = NSAppleScript(source: "tell application \"\(app)\" to next track")
+        s?.executeAndReturnError(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.check() }
+    }
+
+    func previousTrack() {
+        guard let app = activePlayerName else { return }
+        let s = NSAppleScript(source: "tell application \"\(app)\" to previous track")
+        s?.executeAndReturnError(nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.check() }
     }
 
     private func check() {
         for player in Self.players
         where !NSRunningApplication.runningApplications(withBundleIdentifier: player.bundleID).isEmpty {
             if let out = script(for: player.name)?.executeAndReturnError(nil).stringValue, !out.isEmpty {
-                line = out
-                return
+                let parts = out.components(separatedBy: "|||")
+                if parts.count >= 4 {
+                    let stateStr = parts[0]
+                    let playing = stateStr.lowercased().contains("playing")
+                    let song = parts[1]
+                    let art = parts[2]
+                    let alb = parts[3]
+                    let artURL = parts.count > 4 ? parts[4] : ""
+
+                    activePlayerName = player.name
+                    isPlaying = playing
+                    trackTitle = song
+                    artist = art
+                    album = alb
+                    line = song.isEmpty ? nil : "\(song) — \(art)"
+
+                    if !artURL.isEmpty && artURL != currentArtworkURL {
+                        currentArtworkURL = artURL
+                        fetchArtwork(from: artURL)
+                    } else if artURL.isEmpty && artworkImage == nil && !song.isEmpty {
+                        // For Music app, extract artwork asynchronously
+                        fetchMusicAppArtwork()
+                    }
+                    return
+                }
             }
         }
+        activePlayerName = nil
         line = nil
+        isPlaying = false
+    }
+
+    private func fetchArtwork(from urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let data, let img = NSImage(data: data) else { return }
+            DispatchQueue.main.async { self?.artworkImage = img }
+        }.resume()
+    }
+
+    private func fetchMusicAppArtwork() {
+        guard activePlayerName == "Music" else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let script = NSAppleScript(source: """
+            tell application "Music"
+                try
+                    if (count of artworks of current track) > 0 then
+                        return data of artwork 1 of current track
+                    end if
+                end try
+                return ""
+            end tell
+            """)
+            if let dataDesc = script?.executeAndReturnError(nil).data {
+                if let img = NSImage(data: dataDesc) {
+                    DispatchQueue.main.async { self?.artworkImage = img }
+                }
+            }
+        }
     }
 
     private func script(for app: String) -> NSAppleScript? {
         if let s = scripts[app] { return s }
-        let s = NSAppleScript(source: """
-        tell application "\(app)"
-            if player state is playing then return (name of current track) & " — " & (artist of current track)
-        end tell
-        return ""
-        """)
+        let source: String
+        if app == "Spotify" {
+            source = """
+            tell application "Spotify"
+                try
+                    set st to player state as string
+                    set nm to name of current track
+                    set ar to artist of current track
+                    set al to album of current track
+                    set art to ""
+                    try
+                        set art to artwork url of current track
+                    end try
+                    return st & "|||" & nm & "|||" & ar & "|||" & al & "|||" & art
+                end try
+                return ""
+            end tell
+            """
+        } else {
+            source = """
+            tell application "Music"
+                try
+                    set st to player state as string
+                    set nm to name of current track
+                    set ar to artist of current track
+                    set al to album of current track
+                    return st & "|||" & nm & "|||" & ar & "|||" & al & "|||"
+                end try
+                return ""
+            end tell
+            """
+        }
+        let s = NSAppleScript(source: source)
         scripts[app] = s
         return s
     }
@@ -244,6 +357,7 @@ struct WidgetShell: View {
         case .lifeboard: LifeboardWidget(feed: feed)
         case .weather: WeatherWidget(feed: feed)
         case .nowPlaying: NowPlayingWidget(music: music)
+        case .vinyl: VinylWidget(music: music)
         }
     }
 }

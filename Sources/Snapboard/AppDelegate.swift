@@ -210,6 +210,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         menu.addItem(.separator())
 
         menu.addItem(item("Library and launcher…") { [weak self] in self?.openLibrary() })
+        menu.addItem(item("Fullscreen launcher…") { FullscreenLauncherController.shared.toggle() })
+        let shelfCount = DropShelfModel.shared.items.count
+        let shelfLabel = shelfCount > 0 ? "Drop shelf (\(shelfCount) items)…" : "Drop shelf…"
+        menu.addItem(item(shelfLabel) { DropShelfController.shared.toggle() })
         menu.addItem(item("Automation…") { [weak self] in self?.openAutomation() })
         let surfaces = NSMenuItem(title: "Custom surfaces", action: nil, keyEquivalent: "")
         let surfacesMenu = CustomSurfacesMenu.makeMenu(groups: state.menuGroups, items: state.libraryItems,
