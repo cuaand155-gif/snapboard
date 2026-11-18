@@ -8,12 +8,30 @@ ARCH_FLAGS=()
 if [ "${UNIVERSAL:-0}" = "1" ]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
 
 echo "Building Snapboard (this takes a minute the first time)…"
-swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
-
 APP="build/Snapboard.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$(swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)/Snapboard" "$APP/Contents/MacOS/Snapboard"
+
+if swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}; then
+    cp "$(swift build -c release ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-path)/Snapboard" "$APP/Contents/MacOS/Snapboard"
+else
+    echo "SwiftPM manifest build unavailable; falling back to direct swiftc compile…"
+    FALLBACK_DIR="build/swiftc-fallback"
+    rm -rf "$FALLBACK_DIR"
+    mkdir -p "$FALLBACK_DIR"
+    printf '// empty modulemap override for Command Line Tools\n' > "$FALLBACK_DIR/empty.modulemap"
+    cat > "$FALLBACK_DIR/vfs.yaml" <<EOF
+{ "version": 0, "roots": [{ "type": "file", "name": "/Library/Developer/CommandLineTools/usr/include/swift/module.modulemap", "external-contents": "$(pwd)/$FALLBACK_DIR/empty.modulemap" }] }
+EOF
+    swiftc -vfsoverlay "$FALLBACK_DIR/vfs.yaml" -emit-module -emit-library -static \
+        -module-name SnapboardCore -O Sources/SnapboardCore/*.swift \
+        -o "$FALLBACK_DIR/libSnapboardCore.a" \
+        -emit-module-path "$FALLBACK_DIR/SnapboardCore.swiftmodule"
+    swiftc -vfsoverlay "$FALLBACK_DIR/vfs.yaml" -I "$FALLBACK_DIR" \
+        -O Sources/Snapboard/*.swift "$FALLBACK_DIR/libSnapboardCore.a" \
+        -o "$APP/Contents/MacOS/Snapboard"
+    rm -rf "$FALLBACK_DIR"
+fi
 
 # The app icon: Resources/AppIcon.png (drawn by scripts/make-icon.py) turned into an .icns.
 ICONSET="build/AppIcon.iconset"

@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private var permissionTimer: Timer?
     private var libraryObserver: AnyCancellable?
     private var recordingIndicatorTimer: Timer?
+    private var lastRecordingActive = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -77,8 +78,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
         let view = WelcomeView(openSettings: {
             WindowMover.askForPermission()
             WindowMover.openAccessibilitySettings()
+        }, refreshAfterUpdate: {
+            WindowMover.refreshPermissionAfterUpdate()
         })
-        let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 440, height: 260), styleMask: [.titled, .closable],
+        let w = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 280), styleMask: [.titled, .closable],
                          backing: .buffered, defer: false)
         w.title = "Welcome to Snapboard"
         w.delegate = self
@@ -126,6 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func updateRecordingIndicator() {
         let active = RecordingWindowController.shared.isRecording
+        guard active != lastRecordingActive else { return }
+        lastRecordingActive = active
         statusItem.button?.image = NSImage(systemSymbolName: active ? "record.circle.fill" : "rectangle.split.2x1",
                                           accessibilityDescription: active ? "Snapboard recording" : "Snapboard")
         statusItem.button?.contentTintColor = active ? .systemRed : nil
@@ -371,6 +376,7 @@ final class MenuAction: NSObject {
 
 struct WelcomeView: View {
     let openSettings: () -> Void
+    let refreshAfterUpdate: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -378,13 +384,17 @@ struct WelcomeView: View {
             Text("To move other apps' windows into your zones, macOS needs you to allow Snapboard under Privacy & Security → Accessibility.")
             Text("Press the button, switch Snapboard on in the list, and this window closes by itself.")
                 .foregroundStyle(.secondary)
+            Text("Already switched on? After an app update, macOS still remembers the older version. Click \"Refresh after update\", then switch Snapboard back on once.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Spacer()
             HStack {
+                Button("Refresh after update", action: refreshAfterUpdate)
                 Spacer()
                 Button("Open Accessibility settings", action: openSettings).keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(width: 440, height: 260)
+        .frame(width: 460, height: 280)
     }
 }

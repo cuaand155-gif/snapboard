@@ -13,6 +13,17 @@ enum WindowMover {
         _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
     }
 
+    /// Clears a stale ad-hoc signature entry from an earlier build before re-requesting access.
+    static func refreshPermissionAfterUpdate() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        task.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "com.alexi.snapboard"]
+        try? task.run()
+        task.waitUntilExit()
+        askForPermission()
+        openAccessibilitySettings()
+    }
+
     static func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
