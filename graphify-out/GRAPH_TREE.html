@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>/ — graphify tree viewer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      margin: 20px 0 0 24px;
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #1e3a56;
+    }
+    .controls {
+      margin: 20px 0 15px 24px;
+    }
+    button {
+      margin-right: 10px;
+      padding: 8px 18px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s ease-in-out;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:active {
+      background: #004085;
+    }
+    #tree-container {
+      width: calc(100vw - 48px); /* Adjust for body margin/padding */
+      height: 85vh;
+      overflow: auto;
+      border-radius: 8px;
+      background: #fff;
+      margin-left: 24px;
+      margin-right: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid #ddd;
+    }
+    svg {
+      background: #fff;
+      border-radius: 8px;
+      display: block; /* Important for D3 */
+    }
+    .node circle {
+      stroke-width: 2.5px;
+    }
+    .node text { /* Base style for the <text> container */
+      font: 13px 'Segoe UI', sans-serif;
+      paint-order: stroke fill; /* Ensures text is readable over lines */
+      stroke: #fff; /* White halo */
+      stroke-width: 3px; /* Halo thickness */
+      stroke-linejoin: round;
+      stroke-opacity: 0.85; /* Halo opacity */
+    }
+    .link {
+      fill: none;
+      stroke-opacity: 0.7;
+      stroke-width: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h1>/ — Knowledge Graph</h1>
+  <div class="controls">
+    <button onclick="expandAll()">Expand All</button>
+    <button onclick="collapseAll()">Collapse All</button>
+    <button onclick="resetView()">Reset View</button>
+  </div>
+  <div id="tree-container">
+    <svg id="tree-svg" width="6000" height="8000"></svg>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    const initialJsonData = {"name":"/","total_count":679,"children":[{"name":".github","total_count":18,"children":[{"name":"workflows","total_count":18,"children":[{"name":"build.yml","total_count":18,"children":[{"name":"build","total_count":1,"children":[]},{"name":"contents","total_count":1,"children":[]},{"name":"jobs","total_count":1,"children":[]},{"name":"name","total_count":1,"children":[]},{"name":"name","total_count":1,"children":[]},{"name":"name","total_count":1,"children":[]},{"name":"on","total_count":1,"children":[]},{"name":"path","total_count":1,"children":[]},{"name":"permissions","total_count":1,"children":[]},{"name":"push","total_count":1,"children":[]},{"name":"retention-days","total_count":1,"children":[]},{"name":"run","total_count":1,"children":[]},{"name":"runs-on","total_count":1,"children":[]},{"name":"steps","total_count":1,"children":[]},{"name":"timeout-minutes","total_count":1,"children":[]},{"name":"uses","total_count":1,"children":[]},{"name":"with","total_count":1,"children":[]},{"name":"workflow_dispatch","total_count":1,"children":[]}]}]}]},{"name":"AGENTS.md","total_count":2,"children":[{"name":"AGENTS.md","total_count":1,"children":[]},{"name":"Snapboard project context","total_count":1,"children":[]}]},{"name":"CLAUDE.md","total_count":5,"children":[{"name":"CLAUDE.md","total_count":1,"children":[]},{"name":"CLAUDE.md","total_count":1,"children":[]},{"name":"Commands (on a Mac with Xcode)","total_count":1,"children":[]},{"name":"Layout","total_count":1,"children":[]},{"name":"Rules","total_count":1,"children":[]}]},{"name":"docs","total_count":2,"children":[{"name":"workspace-design.md","total_count":2,"children":[{"name":"Workspace controls","total_count":1,"children":[]},{"name":"workspace-design.md","total_count":1,"children":[]}]}]},{"name":"Package.swift","total_count":1,"children":[{"name":"PackageDescription","total_count":1,"children":[]}]},{"name":"README.md","total_count":15,"children":[{"name":"1. Download the app (easiest)","total_count":1,"children":[]},{"name":"2. Or build it yourself (only if you want to)","total_count":1,"children":[]},{"name":"3. First launch","total_count":1,"children":[]},{"name":"Actions and triggers","total_count":1,"children":[]},{"name":"Connect Lifeboard (for the Lifeboard and weather widgets)","total_count":1,"children":[]},{"name":"Custom surfaces","total_count":1,"children":[]},{"name":"For developers","total_count":1,"children":[]},{"name":"Good to know","total_count":1,"children":[]},{"name":"Library and launcher","total_count":1,"children":[]},{"name":"Native Dock presets","total_count":1,"children":[]},{"name":"README.md","total_count":1,"children":[]},{"name":"Screen recording","total_count":1,"children":[]},{"name":"Snapboard","total_count":1,"children":[]},{"name":"Using it","total_count":1,"children":[]},{"name":"Workspaces","total_count":1,"children":[]}]},{"name":"scripts","total_count":2,"children":[{"name":"build-app.sh","total_count":1,"children":[{"name":"build-app.sh script","total_count":1,"children":[]}]},{"name":"make-icon.py","total_count":1,"children":[{"name":"Draws Snapboard's app icon (Resources/AppIcon.png, 1024x1024). Re-run with:\u2026","total_count":1,"children":[]}]}]},{"name":"Sources","total_count":579,"children":[{"name":"Snapboard","total_count":416,"children":[{"name":"AppDelegate.swift","total_count":28,"children":[{"name":".applicationDidFinishLaunching()","total_count":1,"children":[]},{"name":".applicationShouldHandleReopen()","total_count":1,"children":[]},{"name":".applicationShouldTerminate()","total_count":1,"children":[]},{"name":".applicationWillTerminate()","total_count":1,"children":[]},{"name":".applyShortcutSetting()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".item()","total_count":1,"children":[]},{"name":".menuNeedsUpdate()","total_count":1,"children":[]},{"name":".openAutomation()","total_count":1,"children":[]},{"name":".openDockPresets()","total_count":1,"children":[]},{"name":".openLibrary()","total_count":1,"children":[]},{"name":".openLibraryItem()","total_count":1,"children":[]},{"name":".openMenuPicker()","total_count":1,"children":[]},{"name":".openSettings()","total_count":1,"children":[]},{"name":".openSurfaces()","total_count":1,"children":[]},{"name":".openTool()","total_count":1,"children":[]},{"name":".openWorkspaces()","total_count":1,"children":[]},{"name":".run()","total_count":1,"children":[]},{"name":".runAction()","total_count":1,"children":[]},{"name":".showWelcome()","total_count":1,"children":[]},{"name":".showWorkspaceError()","total_count":1,"children":[]},{"name":".startSnapping()","total_count":1,"children":[]},{"name":".updateRecordingIndicator()","total_count":1,"children":[]},{"name":".windowWillClose()","total_count":1,"children":[]},{"name":"AppDelegate","total_count":1,"children":[]},{"name":"MenuAction","total_count":1,"children":[]},{"name":"WelcomeView","total_count":1,"children":[]}]},{"name":"AppModel.swift","total_count":25,"children":[{"name":".activateWorkspace()","total_count":1,"children":[]},{"name":".addApplication()","total_count":1,"children":[]},{"name":".addLink()","total_count":1,"children":[]},{"name":".associate()","total_count":1,"children":[]},{"name":".createWorkspace()","total_count":1,"children":[]},{"name":".currentScreenLayouts()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".layout()","total_count":1,"children":[]},{"name":".mainHeight","total_count":1,"children":[]},{"name":".openLifeboard()","total_count":1,"children":[]},{"name":".openWorkspaceItem()","total_count":1,"children":[]},{"name":".removeItem()","total_count":1,"children":[]},{"name":".renameWorkspace()","total_count":1,"children":[]},{"name":".save()","total_count":1,"children":[]},{"name":".setLayout()","total_count":1,"children":[]},{"name":".setToken()","total_count":1,"children":[]},{"name":".snapKey","total_count":1,"children":[]},{"name":".state","total_count":1,"children":[]},{"name":".token()","total_count":1,"children":[]},{"name":".underMouse","total_count":1,"children":[]},{"name":".updateWorkspaceLayouts()","total_count":1,"children":[]},{"name":"AppModel","total_count":1,"children":[]},{"name":"Keychain","total_count":1,"children":[]},{"name":"NSScreen","total_count":1,"children":[]},{"name":"Security","total_count":1,"children":[]}]},{"name":"AutomationRuntime.swift","total_count":7,"children":[{"name":".handle()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".refresh()","total_count":1,"children":[]},{"name":".reservedShortcuts","total_count":1,"children":[]},{"name":".run()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":"AutomationRuntime","total_count":1,"children":[]}]},{"name":"AutomationUI.swift","total_count":26,"children":[{"name":".actionCard()","total_count":1,"children":[]},{"name":".actionName()","total_count":1,"children":[]},{"name":".actionUsageSummary()","total_count":1,"children":[]},{"name":".addAction()","total_count":1,"children":[]},{"name":".addRule()","total_count":1,"children":[]},{"name":".addStep()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".clearMissingWorkspaces()","total_count":1,"children":[]},{"name":".moveStep()","total_count":1,"children":[]},{"name":".refreshRegistrations()","total_count":1,"children":[]},{"name":".removeAction()","total_count":1,"children":[]},{"name":".removeRule()","total_count":1,"children":[]},{"name":".removeStep()","total_count":1,"children":[]},{"name":".ruleActionID()","total_count":1,"children":[]},{"name":".ruleEnabled()","total_count":1,"children":[]},{"name":".ruleKeyCode()","total_count":1,"children":[]},{"name":".ruleModifiers()","total_count":1,"children":[]},{"name":".ruleName()","total_count":1,"children":[]},{"name":".stepTarget()","total_count":1,"children":[]},{"name":".stepTargetBinding()","total_count":1,"children":[]},{"name":".triggerSection","total_count":1,"children":[]},{"name":".update()","total_count":1,"children":[]},{"name":".workspaceAssociation()","total_count":1,"children":[]},{"name":"AutomationEditorView","total_count":1,"children":[]},{"name":"KeyChoice","total_count":1,"children":[]},{"name":"ModifierChoice","total_count":1,"children":[]}]},{"name":"CustomSurfaces.swift","total_count":45,"children":[{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".buttons","total_count":1,"children":[]},{"name":".changeDock()","total_count":1,"children":[]},{"name":".changeGroup()","total_count":1,"children":[]},{"name":".currentDock()","total_count":1,"children":[]},{"name":".currentGroup()","total_count":1,"children":[]},{"name":".displayChoices()","total_count":1,"children":[]},{"name":".dockEditor()","total_count":1,"children":[]},{"name":".flatItems","total_count":1,"children":[]},{"name":".focusAndSyncSelection()","total_count":1,"children":[]},{"name":".frame()","total_count":1,"children":[]},{"name":".groupEditor()","total_count":1,"children":[]},{"name":".horizontal","total_count":1,"children":[]},{"name":".id","total_count":1,"children":[]},{"name":".id","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".installKeyMonitor()","total_count":1,"children":[]},{"name":".itemEditor()","total_count":1,"children":[]},{"name":".makeMenu()","total_count":1,"children":[]},{"name":".makePanel()","total_count":1,"children":[]},{"name":".matches","total_count":1,"children":[]},{"name":".moveID()","total_count":1,"children":[]},{"name":".moveSelection()","total_count":1,"children":[]},{"name":".openAndReset()","total_count":1,"children":[]},{"name":".openSelected()","total_count":1,"children":[]},{"name":".removeKeyMonitor()","total_count":1,"children":[]},{"name":".setExpanded()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":".sync()","total_count":1,"children":[]},{"name":".syncSelection()","total_count":1,"children":[]},{"name":".toggleWorkspace()","total_count":1,"children":[]},{"name":".update()","total_count":1,"children":[]},{"name":".workspaceEditor()","total_count":1,"children":[]},{"name":"CustomDockBody","total_count":1,"children":[]},{"name":"CustomDockController","total_count":1,"children":[]},{"name":"CustomDockPanelState","total_count":1,"children":[]},{"name":"CustomSurfacesMenu","total_count":1,"children":[]},{"name":"CustomSurfacesView","total_count":1,"children":[]},{"name":"DisplayChoice","total_count":1,"children":[]},{"name":"DockEntry","total_count":1,"children":[]},{"name":"MenuGroupPickerView","total_count":1,"children":[]},{"name":"PickerGroup","total_count":1,"children":[]}]},{"name":"DockPresetUI.swift","total_count":26,"children":[{"name":".apply()","total_count":1,"children":[]},{"name":".applySelected()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".capture()","total_count":1,"children":[]},{"name":".capturePreset()","total_count":1,"children":[]},{"name":".deleteSelected()","total_count":1,"children":[]},{"name":".errorDescription","total_count":1,"children":[]},{"name":".hasRestorePoint()","total_count":1,"children":[]},{"name":".refresh()","total_count":1,"children":[]},{"name":".refreshPreviewWithoutClearingMessage()","total_count":1,"children":[]},{"name":".renameSelected()","total_count":1,"children":[]},{"name":".restartDockWarning()","total_count":1,"children":[]},{"name":".restore()","total_count":1,"children":[]},{"name":".restorePrevious()","total_count":1,"children":[]},{"name":".restoreURL","total_count":1,"children":[]},{"name":".selected","total_count":1,"children":[]},{"name":".writeAndVerify()","total_count":1,"children":[]},{"name":"CoreFoundation","total_count":1,"children":[]},{"name":"DockOperationError","total_count":1,"children":[]},{"name":"DockPreferences","total_count":1,"children":[]},{"name":"DockPresetView","total_count":1,"children":[]},{"name":"DockRestorePoint","total_count":1,"children":[]},{"name":"noRestorePoint","total_count":1,"children":[]},{"name":"preferencesUnavailable","total_count":1,"children":[]},{"name":"syncFailed","total_count":1,"children":[]},{"name":"verificationFailed","total_count":1,"children":[]}]},{"name":"DropShelf.swift","total_count":30,"children":[{"name":".addFiles()","total_count":1,"children":[]},{"name":".addText()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".clearAll()","total_count":1,"children":[]},{"name":".close()","total_count":1,"children":[]},{"name":".combineAllIntoPDF()","total_count":1,"children":[]},{"name":".convertImageToPNG()","total_count":1,"children":[]},{"name":".copyPath()","total_count":1,"children":[]},{"name":".emptyDropTarget","total_count":1,"children":[]},{"name":".handleDrop()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".isImage","total_count":1,"children":[]},{"name":".isPDF","total_count":1,"children":[]},{"name":".isVisible","total_count":1,"children":[]},{"name":".itemsScrollArea","total_count":1,"children":[]},{"name":".open()","total_count":1,"children":[]},{"name":".openItem()","total_count":1,"children":[]},{"name":".remove()","total_count":1,"children":[]},{"name":".revealInFinder()","total_count":1,"children":[]},{"name":".setupPanel()","total_count":1,"children":[]},{"name":".toggle()","total_count":1,"children":[]},{"name":"DropShelfCard","total_count":1,"children":[]},{"name":"DropShelfController","total_count":1,"children":[]},{"name":"DropShelfItem","total_count":1,"children":[]},{"name":"DropShelfModel","total_count":1,"children":[]},{"name":"DropShelfView","total_count":1,"children":[]},{"name":"PDFKit","total_count":1,"children":[]}]},{"name":"FullscreenLauncher.swift","total_count":22,"children":[{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".close()","total_count":1,"children":[]},{"name":".filteredApps","total_count":1,"children":[]},{"name":".hash()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".isVisible","total_count":1,"children":[]},{"name":".launch()","total_count":1,"children":[]},{"name":".launchFirstResult()","total_count":1,"children":[]},{"name":".open()","total_count":1,"children":[]},{"name":".refresh()","total_count":1,"children":[]},{"name":".setupWindow()","total_count":1,"children":[]},{"name":".startKeyMonitor()","total_count":1,"children":[]},{"name":".stopKeyMonitor()","total_count":1,"children":[]},{"name":".toggle()","total_count":1,"children":[]},{"name":"AppDiscoveryModel","total_count":1,"children":[]},{"name":"FullscreenLauncherController","total_count":1,"children":[]},{"name":"FullscreenLauncherView","total_count":1,"children":[]},{"name":"InstalledApp","total_count":1,"children":[]},{"name":"LauncherAppTile","total_count":1,"children":[]}]},{"name":"Hotkeys.swift","total_count":7,"children":[{"name":".deinit()","total_count":1,"children":[]},{"name":".handleHotkey()","total_count":1,"children":[]},{"name":".notifyPermissionNeededIfReady()","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":"Carbon.HIToolbox","total_count":1,"children":[]},{"name":"Hotkeys","total_count":1,"children":[]}]},{"name":"LayoutEditor.swift","total_count":11,"children":[{"name":".body","total_count":1,"children":[]},{"name":".canBecomeKey","total_count":1,"children":[]},{"name":".close()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".open()","total_count":1,"children":[]},{"name":".scaled()","total_count":1,"children":[]},{"name":".split()","total_count":1,"children":[]},{"name":".toolbar","total_count":1,"children":[]},{"name":"EditorPanel","total_count":1,"children":[]},{"name":"LayoutEditorController","total_count":1,"children":[]},{"name":"LayoutEditorView","total_count":1,"children":[]}]},{"name":"LibraryLauncher.swift","total_count":27,"children":[{"name":".activeGroup","total_count":1,"children":[]},{"name":".addGroup()","total_count":1,"children":[]},{"name":".addLibraryItem()","total_count":1,"children":[]},{"name":".availableTags","total_count":1,"children":[]},{"name":".beginEditing()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".chooseFile()","total_count":1,"children":[]},{"name":".clearEditor()","total_count":1,"children":[]},{"name":".exportArchive()","total_count":1,"children":[]},{"name":".handleLauncherKeyDown()","total_count":1,"children":[]},{"name":".importArchive()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".installKeyMonitor()","total_count":1,"children":[]},{"name":".launcherPane","total_count":1,"children":[]},{"name":".launcherTileLabel()","total_count":1,"children":[]},{"name":".libraryPane","total_count":1,"children":[]},{"name":".openFirstSearchResult()","total_count":1,"children":[]},{"name":".openLibraryItem()","total_count":1,"children":[]},{"name":".remove()","total_count":1,"children":[]},{"name":".removeKeyMonitor()","total_count":1,"children":[]},{"name":".results","total_count":1,"children":[]},{"name":".saveItem()","total_count":1,"children":[]},{"name":".saveLibraryItem()","total_count":1,"children":[]},{"name":".setMembership()","total_count":1,"children":[]},{"name":".symbol()","total_count":1,"children":[]},{"name":".tagChip()","total_count":1,"children":[]},{"name":"LibraryLauncherView","total_count":1,"children":[]}]},{"name":"main.swift","total_count":1,"children":[{"name":"AppKit","total_count":1,"children":[]}]},{"name":"Recording.swift","total_count":49,"children":[{"name":".appendCompositedFrame()","total_count":1,"children":[]},{"name":".begin()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".captureOutput()","total_count":1,"children":[]},{"name":".discard()","total_count":1,"children":[]},{"name":".duration","total_count":1,"children":[]},{"name":".errorDescription","total_count":1,"children":[]},{"name":".export()","total_count":1,"children":[]},{"name":".exportRecording()","total_count":1,"children":[]},{"name":".finishWriter()","total_count":1,"children":[]},{"name":".hasPendingExport","total_count":1,"children":[]},{"name":".id","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".isAuthorized()","total_count":1,"children":[]},{"name":".isBusy","total_count":1,"children":[]},{"name":".isRecording","total_count":1,"children":[]},{"name":".open()","total_count":1,"children":[]},{"name":".prepareCameraSession()","total_count":1,"children":[]},{"name":".refreshSources()","total_count":1,"children":[]},{"name":".size","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":".stream()","total_count":1,"children":[]},{"name":".time()","total_count":1,"children":[]},{"name":"AVFoundation","total_count":1,"children":[]},{"name":"cameraPermission","total_count":1,"children":[]},{"name":"CoreImage","total_count":1,"children":[]},{"name":"CoreMedia","total_count":1,"children":[]},{"name":"CoreVideo","total_count":1,"children":[]},{"name":"deviceStart","total_count":1,"children":[]},{"name":"exportSetup","total_count":1,"children":[]},{"name":"invalidSource","total_count":1,"children":[]},{"name":"microphone","total_count":1,"children":[]},{"name":"microphonePermission","total_count":1,"children":[]},{"name":"noCamera","total_count":1,"children":[]},{"name":"noMicrophone","total_count":1,"children":[]},{"name":"none","total_count":1,"children":[]},{"name":"RecordingAudio","total_count":1,"children":[]},{"name":"RecordingError","total_count":1,"children":[]},{"name":"RecordingSource","total_count":1,"children":[]},{"name":"RecordingView","total_count":1,"children":[]},{"name":"RecordingWindowController","total_count":1,"children":[]},{"name":"ScreenCaptureKit","total_count":1,"children":[]},{"name":"ScreenRecorder","total_count":1,"children":[]},{"name":"SendableBox","total_count":1,"children":[]},{"name":"system","total_count":1,"children":[]},{"name":"trimTooShort","total_count":1,"children":[]},{"name":"writerSetup","total_count":1,"children":[]}]},{"name":"SettingsView.swift","total_count":6,"children":[{"name":".body","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".saveAndTest()","total_count":1,"children":[]},{"name":".setOpenAtLogin()","total_count":1,"children":[]},{"name":"ServiceManagement","total_count":1,"children":[]},{"name":"SettingsView","total_count":1,"children":[]}]},{"name":"Snapper.swift","total_count":18,"children":[{"name":".apply()","total_count":1,"children":[]},{"name":".deactivate()","total_count":1,"children":[]},{"name":".dragged()","total_count":1,"children":[]},{"name":".flagsChanged()","total_count":1,"children":[]},{"name":".notifyPermissionNeededIfReady()","total_count":1,"children":[]},{"name":".released()","total_count":1,"children":[]},{"name":".reset()","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":".unitRect","total_count":1,"children":[]},{"name":".updateTarget()","total_count":1,"children":[]},{"name":"bottomHalf","total_count":1,"children":[]},{"name":"leftHalf","total_count":1,"children":[]},{"name":"maximise","total_count":1,"children":[]},{"name":"QuickSnap","total_count":1,"children":[]},{"name":"rightHalf","total_count":1,"children":[]},{"name":"Snapper","total_count":1,"children":[]},{"name":"topHalf","total_count":1,"children":[]}]},{"name":"VinylWidget.swift","total_count":14,"children":[{"name":".body","total_count":1,"children":[]},{"name":".bottomBar","total_count":1,"children":[]},{"name":".centerLabel","total_count":1,"children":[]},{"name":".deckBackground","total_count":1,"children":[]},{"name":".id","total_count":1,"children":[]},{"name":".startRotationTimer()","total_count":1,"children":[]},{"name":".tonearm","total_count":1,"children":[]},{"name":".turntableDeck","total_count":1,"children":[]},{"name":".turntablePlatter","total_count":1,"children":[]},{"name":"DeckStyle","total_count":1,"children":[]},{"name":"matteDark","total_count":1,"children":[]},{"name":"transparent","total_count":1,"children":[]},{"name":"VinylWidget","total_count":1,"children":[]},{"name":"warmWood","total_count":1,"children":[]}]},{"name":"Widgets.swift","total_count":46,"children":[{"name":".add()","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".body","total_count":1,"children":[]},{"name":".check()","total_count":1,"children":[]},{"name":".content","total_count":1,"children":[]},{"name":".fetch()","total_count":1,"children":[]},{"name":".fetchArtwork()","total_count":1,"children":[]},{"name":".fetchMusicAppArtwork()","total_count":1,"children":[]},{"name":".id","total_count":1,"children":[]},{"name":".isShown()","total_count":1,"children":[]},{"name":".nextTrack()","total_count":1,"children":[]},{"name":".playPause()","total_count":1,"children":[]},{"name":".previousTrack()","total_count":1,"children":[]},{"name":".refresh()","total_count":1,"children":[]},{"name":".remove()","total_count":1,"children":[]},{"name":".screensChanged()","total_count":1,"children":[]},{"name":".script()","total_count":1,"children":[]},{"name":".show()","total_count":1,"children":[]},{"name":".size","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".start()","total_count":1,"children":[]},{"name":".stop()","total_count":1,"children":[]},{"name":".title","total_count":1,"children":[]},{"name":".toggle()","total_count":1,"children":[]},{"name":".updateMusic()","total_count":1,"children":[]},{"name":".windowDidMove()","total_count":1,"children":[]},{"name":"clock","total_count":1,"children":[]},{"name":"ClockWidget","total_count":1,"children":[]},{"name":"Combine","total_count":1,"children":[]},{"name":"FeedModel","total_count":1,"children":[]},{"name":"FetchError","total_count":1,"children":[]},{"name":"lifeboard","total_count":1,"children":[]},{"name":"LifeboardWidget","total_count":1,"children":[]},{"name":"nowPlaying","total_count":1,"children":[]},{"name":"NowPlayingModel","total_count":1,"children":[]},{"name":"NowPlayingWidget","total_count":1,"children":[]},{"name":"vinyl","total_count":1,"children":[]},{"name":"weather","total_count":1,"children":[]},{"name":"WeatherWidget","total_count":1,"children":[]},{"name":"WidgetKind","total_count":1,"children":[]},{"name":"WidgetManager","total_count":1,"children":[]},{"name":"WidgetShell","total_count":1,"children":[]}]},{"name":"WindowMover.swift","total_count":12,"children":[{"name":".area","total_count":1,"children":[]},{"name":".askForPermission()","total_count":1,"children":[]},{"name":".frame()","total_count":1,"children":[]},{"name":".frontWindow()","total_count":1,"children":[]},{"name":".isTrusted","total_count":1,"children":[]},{"name":".move()","total_count":1,"children":[]},{"name":".openAccessibilitySettings()","total_count":1,"children":[]},{"name":".refreshPermissionAfterUpdate()","total_count":1,"children":[]},{"name":".screen()","total_count":1,"children":[]},{"name":"ApplicationServices","total_count":1,"children":[]},{"name":"CGRect","total_count":1,"children":[]},{"name":"WindowMover","total_count":1,"children":[]}]},{"name":"WorkspaceEditor.swift","total_count":9,"children":[{"name":".body","total_count":1,"children":[]},{"name":".chooseApplication()","total_count":1,"children":[]},{"name":".createWorkspace()","total_count":1,"children":[]},{"name":".saveName()","total_count":1,"children":[]},{"name":".selectedWorkspace","total_count":1,"children":[]},{"name":".workspaceDetails()","total_count":1,"children":[]},{"name":"SwiftUI","total_count":1,"children":[]},{"name":"UniformTypeIdentifiers","total_count":1,"children":[]},{"name":"WorkspaceEditorView","total_count":1,"children":[]}]},{"name":"ZoneOverlay.swift","total_count":7,"children":[{"name":".draw()","total_count":1,"children":[]},{"name":".hide()","total_count":1,"children":[]},{"name":".isFlipped","total_count":1,"children":[]},{"name":".makePanel()","total_count":1,"children":[]},{"name":".show()","total_count":1,"children":[]},{"name":"ZoneOverlay","total_count":1,"children":[]},{"name":"ZonesView","total_count":1,"children":[]}]}]},{"name":"SnapboardCore","total_count":163,"children":[{"name":"Automation.swift","total_count":26,"children":[{"name":".conflictingRuleIDs()","total_count":1,"children":[]},{"name":".hasValidModifiers","total_count":1,"children":[]},{"name":".hasValidTarget","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".invalidActionIDs()","total_count":1,"children":[]},{"name":".invalidRuleIDs()","total_count":1,"children":[]},{"name":".isAvailable()","total_count":1,"children":[]},{"name":".title","total_count":1,"children":[]},{"name":"activateWorkspace","total_count":1,"children":[]},{"name":"AutomationRule","total_count":1,"children":[]},{"name":"AutomationStep","total_count":1,"children":[]},{"name":"AutomationValidation","total_count":1,"children":[]},{"name":"KeyboardShortcut","total_count":1,"children":[]},{"name":"Kind","total_count":1,"children":[]},{"name":"openLibraryItem","total_count":1,"children":[]},{"name":"openURL","total_count":1,"children":[]},{"name":"SavedAction","total_count":1,"children":[]},{"name":"ShortcutModifiers","total_count":1,"children":[]},{"name":"snapBottom","total_count":1,"children":[]},{"name":"snapFull","total_count":1,"children":[]},{"name":"snapLeft","total_count":1,"children":[]},{"name":"snapRight","total_count":1,"children":[]},{"name":"snapTop","total_count":1,"children":[]}]},{"name":"DockPresets.swift","total_count":23,"children":[{"name":".changes()","total_count":1,"children":[]},{"name":".displayValue()","total_count":1,"children":[]},{"name":".errorDescription","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".isEquivalent()","total_count":1,"children":[]},{"name":".label","total_count":1,"children":[]},{"name":".propertyList()","total_count":1,"children":[]},{"name":"absentKeys","total_count":1,"children":[]},{"name":"apps","total_count":1,"children":[]},{"name":"autohide","total_count":1,"children":[]},{"name":"CodingKeys","total_count":1,"children":[]},{"name":"DockPreferenceKey","total_count":1,"children":[]},{"name":"DockPreset","total_count":1,"children":[]},{"name":"DockPresetError","total_count":1,"children":[]},{"name":"DockSnapshot","total_count":1,"children":[]},{"name":"folders","total_count":1,"children":[]},{"name":"invalidSnapshot","total_count":1,"children":[]},{"name":"largeSize","total_count":1,"children":[]},{"name":"magnification","total_count":1,"children":[]},{"name":"orientation","total_count":1,"children":[]},{"name":"tileSize","total_count":1,"children":[]},{"name":"values","total_count":1,"children":[]}]},{"name":"Feed.swift","total_count":15,"children":[{"name":".decode()","total_count":1,"children":[]},{"name":".encode()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".medsLine()","total_count":1,"children":[]},{"name":".tasksHeadline()","total_count":1,"children":[]},{"name":".weatherLine()","total_count":1,"children":[]},{"name":"Feed","total_count":1,"children":[]},{"name":"FeedText","total_count":1,"children":[]},{"name":"FlexibleID","total_count":1,"children":[]},{"name":"Last","total_count":1,"children":[]},{"name":"Meds","total_count":1,"children":[]},{"name":"Next","total_count":1,"children":[]},{"name":"TaskItem","total_count":1,"children":[]},{"name":"Tasks","total_count":1,"children":[]},{"name":"Weather","total_count":1,"children":[]}]},{"name":"ItemLibrary.swift","total_count":24,"children":[{"name":".addingLegacyWorkspaceItems()","total_count":1,"children":[]},{"name":".decodeHTMLEntities()","total_count":1,"children":[]},{"name":".exportData()","total_count":1,"children":[]},{"name":".importData()","total_count":1,"children":[]},{"name":".importHTMLBookmarks()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".isValid","total_count":1,"children":[]},{"name":".matches()","total_count":1,"children":[]},{"name":".merged()","total_count":1,"children":[]},{"name":".normalizedTags()","total_count":1,"children":[]},{"name":"action","total_count":1,"children":[]},{"name":"application","total_count":1,"children":[]},{"name":"folder","total_count":1,"children":[]},{"name":"invalidGroup","total_count":1,"children":[]},{"name":"invalidItem","total_count":1,"children":[]},{"name":"Kind","total_count":1,"children":[]},{"name":"LauncherGroup","total_count":1,"children":[]},{"name":"LibraryArchive","total_count":1,"children":[]},{"name":"LibraryImportError","total_count":1,"children":[]},{"name":"LibraryItem","total_count":1,"children":[]},{"name":"link","total_count":1,"children":[]},{"name":"unsupportedVersion","total_count":1,"children":[]}]},{"name":"Layout.swift","total_count":29,"children":[{"name":".divide()","total_count":1,"children":[]},{"name":".dividers()","total_count":1,"children":[]},{"name":".layout","total_count":1,"children":[]},{"name":".node()","total_count":1,"children":[]},{"name":".onFarEdge()","total_count":1,"children":[]},{"name":".path()","total_count":1,"children":[]},{"name":".ratio()","total_count":1,"children":[]},{"name":".removing()","total_count":1,"children":[]},{"name":".replacing()","total_count":1,"children":[]},{"name":".settingRatio()","total_count":1,"children":[]},{"name":".splitting()","total_count":1,"children":[]},{"name":".title","total_count":1,"children":[]},{"name":".zoneCount","total_count":1,"children":[]},{"name":".zoneIndex()","total_count":1,"children":[]},{"name":".zones()","total_count":1,"children":[]},{"name":"bigLeftTwoRight","total_count":1,"children":[]},{"name":"full","total_count":1,"children":[]},{"name":"halves","total_count":1,"children":[]},{"name":"LayoutDivider","total_count":1,"children":[]},{"name":"LayoutLimits","total_count":1,"children":[]},{"name":"LayoutNode","total_count":1,"children":[]},{"name":"Preset","total_count":1,"children":[]},{"name":"quarters","total_count":1,"children":[]},{"name":"sideBySide","total_count":1,"children":[]},{"name":"split","total_count":1,"children":[]},{"name":"SplitAxis","total_count":1,"children":[]},{"name":"stacked","total_count":1,"children":[]},{"name":"thirds","total_count":1,"children":[]},{"name":"zone","total_count":1,"children":[]}]},{"name":"ScreenMath.swift","total_count":8,"children":[{"name":".accessibilityRect()","total_count":1,"children":[]},{"name":".appKitRect()","total_count":1,"children":[]},{"name":".clamp()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".snap()","total_count":1,"children":[]},{"name":".unitPoint()","total_count":1,"children":[]},{"name":"ScreenMath","total_count":1,"children":[]},{"name":"WidgetGrid","total_count":1,"children":[]}]},{"name":"Store.swift","total_count":10,"children":[{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".layout()","total_count":1,"children":[]},{"name":".rect","total_count":1,"children":[]},{"name":"CodableRect","total_count":1,"children":[]},{"name":"feedURL()","total_count":1,"children":[]},{"name":"lifeboardHomeURL()","total_count":1,"children":[]},{"name":"lifeboardURL()","total_count":1,"children":[]},{"name":"SavedState","total_count":1,"children":[]},{"name":"screenKey()","total_count":1,"children":[]}]},{"name":"Surfaces.swift","total_count":21,"children":[{"name":".applies()","total_count":1,"children":[]},{"name":".applies()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":".renderedDisplayKey()","total_count":1,"children":[]},{"name":"autoHide","total_count":1,"children":[]},{"name":"bottom","total_count":1,"children":[]},{"name":"CodingKeys","total_count":1,"children":[]},{"name":"CustomDock","total_count":1,"children":[]},{"name":"displayKey","total_count":1,"children":[]},{"name":"enabled","total_count":1,"children":[]},{"name":"id","total_count":1,"children":[]},{"name":"itemIDs","total_count":1,"children":[]},{"name":"left","total_count":1,"children":[]},{"name":"MenuGroup","total_count":1,"children":[]},{"name":"name","total_count":1,"children":[]},{"name":"Placement","total_count":1,"children":[]},{"name":"placement","total_count":1,"children":[]},{"name":"right","total_count":1,"children":[]},{"name":"top","total_count":1,"children":[]},{"name":"workspaceIDs","total_count":1,"children":[]}]},{"name":"Workspace.swift","total_count":7,"children":[{"name":".init()","total_count":1,"children":[]},{"name":".init()","total_count":1,"children":[]},{"name":"application","total_count":1,"children":[]},{"name":"Kind","total_count":1,"children":[]},{"name":"link","total_count":1,"children":[]},{"name":"Workspace","total_count":1,"children":[]},{"name":"WorkspaceItem","total_count":1,"children":[]}]}]}]},{"name":"Tests","total_count":55,"children":[{"name":"SnapboardCoreTests","total_count":55,"children":[{"name":"AutomationTests.swift","total_count":5,"children":[{"name":".testConflictDetectionIgnoresDisabledRulesAndFindsReservedKeys()","total_count":1,"children":[]},{"name":".testInvalidTargetsAndUnsafeModifiersAreRejected()","total_count":1,"children":[]},{"name":".testSavedActionAndRulesSurviveSettingsRoundTrip()","total_count":1,"children":[]},{"name":".testWorkspaceAssociationRestrictsAvailability()","total_count":1,"children":[]},{"name":"AutomationTests","total_count":1,"children":[]}]},{"name":"CoreTests.swift","total_count":28,"children":[{"name":".testAccessibilityFlipsAgainstTheMainScreen()","total_count":1,"children":[]},{"name":".testAnErrorReplyDecodes()","total_count":1,"children":[]},{"name":".testAnOlderSettingsFileStillLoads()","total_count":1,"children":[]},{"name":".testBigLeftTwoRightIsLeftThenTopRightThenBottomRight()","total_count":1,"children":[]},{"name":".testClampKeepsThingsOnScreen()","total_count":1,"children":[]},{"name":".testDecodesTheLifeboardFeedWithStringOrNumberIds()","total_count":1,"children":[]},{"name":".testDraggingADividerClampsTheRatio()","total_count":1,"children":[]},{"name":".testFeedURLFromWhateverIsTyped()","total_count":1,"children":[]},{"name":".testLayoutsSurviveSavingAndLoading()","total_count":1,"children":[]},{"name":".testLeftHalfOnTheScreen()","total_count":1,"children":[]},{"name":".testLifeboardHomeURL()","total_count":1,"children":[]},{"name":".testMalformedWorkspaceDataDoesNotSilentlyDisappear()","total_count":1,"children":[]},{"name":".testMissingPartsSayNotAvailable()","total_count":1,"children":[]},{"name":".testNestedDividerRatioIsRelativeToItsOwnSplit()","total_count":1,"children":[]},{"name":".testPresetsMakeTheRightNumberOfZones()","total_count":1,"children":[]},{"name":".testScreenKeyIncludesTheSize()","total_count":1,"children":[]},{"name":".testSplittingAndRemovingAZone()","total_count":1,"children":[]},{"name":".testSplittingStopsAtTheZoneLimit()","total_count":1,"children":[]},{"name":".testTopZoneIsAtTheTopInAppKit()","total_count":1,"children":[]},{"name":".testUnitPointRoundTrip()","total_count":1,"children":[]},{"name":".testWidgetGridSnapsToTheNearestSpotAndStaysOnScreen()","total_count":1,"children":[]},{"name":".testWorkspaceLayoutsAndLaunchItemsSurviveSettingsRoundTrip()","total_count":1,"children":[]},{"name":".testZoneAtPointIncludingTheFarEdges()","total_count":1,"children":[]},{"name":".testZonesCoverTheScreenWithoutGaps()","total_count":1,"children":[]},{"name":"CoreGraphics","total_count":1,"children":[]},{"name":"FeedTests","total_count":1,"children":[]},{"name":"LayoutTests","total_count":1,"children":[]},{"name":"ScreenMathTests","total_count":1,"children":[]}]},{"name":"DockPresetTests.swift","total_count":7,"children":[{"name":".encoded()","total_count":1,"children":[]},{"name":".snapshot()","total_count":1,"children":[]},{"name":".testEquivalentPropertyListsIgnoreEncodingFormat()","total_count":1,"children":[]},{"name":".testMissingPreferenceIsAChangeAndSurvivesSerialization()","total_count":1,"children":[]},{"name":".testPreviewListsOnlyChangedKeys()","total_count":1,"children":[]},{"name":".testRejectsIncompleteAndWrongTypeSnapshots()","total_count":1,"children":[]},{"name":"DockPresetTests","total_count":1,"children":[]}]},{"name":"ItemLibraryTests.swift","total_count":6,"children":[{"name":".testExportImportRoundTripAndNonDestructiveMerge()","total_count":1,"children":[]},{"name":".testImportHTMLBookmarksSkipsInvalidAndDuplicates()","total_count":1,"children":[]},{"name":".testLegacyWorkspaceItemsSurfaceWithoutDuplication()","total_count":1,"children":[]},{"name":".testMalformedArchiveCannotReplaceExistingData()","total_count":1,"children":[]},{"name":".testSearchIncludesTitleTagsAndTarget()","total_count":1,"children":[]},{"name":"ItemLibraryTests","total_count":1,"children":[]}]},{"name":"SurfacesTests.swift","total_count":9,"children":[{"name":".testMenuGroupPreservesOrderAndSharedReferences()","total_count":1,"children":[]},{"name":".testMissingDisplayFallsBackWithoutChangingSavedTarget()","total_count":1,"children":[]},{"name":".testTwoDocksRemainIndependentThroughRoundTrip()","total_count":1,"children":[]},{"name":".testWorkspaceScopesAndLegacyDecoding()","total_count":1,"children":[]},{"name":".withoutWorkspaceIDs()","total_count":1,"children":[]},{"name":"Foundation","total_count":1,"children":[]},{"name":"SnapboardCore","total_count":1,"children":[]},{"name":"SurfacesTests","total_count":1,"children":[]},{"name":"XCTest","total_count":1,"children":[]}]}]}]}]};
+
+    function transformData(jsonData) {
+        // Helper function to recursively build the children structure
+        function processNode(node, parentL1StageName) {
+            let displayName = node.name;
+            // Append total_count if it exists and is not already in the name
+            if (node.total_count !== undefined) {
+                if (!/\(Total Count: \d+\)$/.test(displayName)) {
+                    displayName += ` (Total Count: ${node.total_count})`;
+                }
+            }
+
+            const newNode = { name: displayName };
+
+            if (parentL1StageName === "Root") {
+                 newNode.originalStageName = node.name;
+            } else {
+                newNode.originalStageName = parentL1StageName;
+            }
+
+            if (node.children && node.children.length > 0) {
+                const stageNameToPass = (parentL1StageName === "Root") ? node.name : parentL1StageName;
+                newNode.children = node.children.map(child => processNode(child, stageNameToPass));
+            }
+
+            return newNode;
+        }
+
+        let rootDisplayName = jsonData.name;
+        if (jsonData.total_count !== undefined && !/\(Total Count: \d+\)$/.test(rootDisplayName)) {
+            rootDisplayName += ` (Total Count: ${jsonData.total_count})`;
+        }
+
+        return {
+            name: rootDisplayName,
+            originalStageName: "Root",
+            children: (jsonData.children || []).map(child => processNode(child, "Root"))
+        };
+    }
+
+    const treeData = transformData(initialJsonData);
+
+    // Auto-populated phaseColors: every depth-1 child of the root gets
+    // a stable colour from a bigger palette so all top-level dirs are
+    // distinguishable.
+    const PALETTE = [
+      ["#3498DB","#2980B9","#AED6F1"], ["#2ECC71","#27AE60","#A9DFBF"],
+      ["#E74C3C","#C0392B","#F5B7B1"], ["#9B59B6","#8E44AD","#D7BDE2"],
+      ["#F39C12","#D68910","#FAD7A0"], ["#1ABC9C","#117864","#A2D9CE"],
+      ["#34495E","#1B2631","#ABB2B9"], ["#E67E22","#BA4A00","#F5CBA7"],
+      ["#16A085","#0E6655","#A2D9CE"], ["#D35400","#A04000","#EDBB99"],
+      ["#7F8C8D","#566573","#D5DBDB"], ["#C0392B","#7B241C","#F5B7B1"],
+      ["#2E86C1","#1B4F72","#A9CCE3"], ["#28B463","#196F3D","#A9DFBF"],
+      ["#AF7AC5","#6C3483","#D2B4DE"],
+    ];
+    const phaseColors = { "Root": { fill: "#4A4A4A", stroke: "#333333", collapsedFill: "#6C757D" },
+                          "Default": { fill: "#BDC3C7", stroke: "#95A5A6", collapsedFill: "#ECF0F1" } };
+    (initialJsonData.children || []).forEach((c, i) => {
+      const pal = PALETTE[i % PALETTE.length];
+      phaseColors[c.name] = { fill: pal[0], stroke: pal[1], collapsedFill: pal[2] };
+    });
+
+    const levelSpecificPalettes = {
+      0: { fill: "#4A4A4A", stroke: "#333333", collapsedFill: "#6C757D" },
+      2: { fill: "#6ab04c", stroke: "#508a38", collapsedFill: "#a3d391" },
+      3: { fill: "#f0932b", stroke: "#d0730f", collapsedFill: "#f6c07e" },
+      4: { fill: "#be2edd", stroke: "#a01cb3", collapsedFill: "#e08bf2" },
+      5: { fill: "#00a8ff", stroke: "#007ac1", collapsedFill: "#74d2ff" },
+      6: { fill: "#e55039", stroke: "#c23620", collapsedFill: "#f09a8d" },
+      default: { fill: "#747d8c", stroke: "#57606f", collapsedFill: "#a4b0be" }
+    };
+
+    const svgElement = d3.select("#tree-svg");
+    const initialSvgWidth = +svgElement.attr("width");
+    const initialSvgHeight = +svgElement.attr("height");
+    const margin = { top: 40, right: 120, bottom: 80, left: 450 };
+    let width = initialSvgWidth - margin.left - margin.right;
+    let height = initialSvgHeight - margin.top - margin.bottom;
+    const duration = 500;
+    let nodeCounter = 0;
+    const g = svgElement.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    const treemap = d3.tree().nodeSize([40, 0]);
+    let rootNode = d3.hierarchy(treeData, d => d.children);
+    rootNode.x0 = 0;
+    rootNode.y0 = 0;
+
+    if (rootNode.children) {
+      rootNode.children.forEach(d_child => {
+        if (d_child.children) { collapseBranch(d_child); }
+      });
+    }
+    updateTree(rootNode);
+
+    function collapseBranch(d) { if (d.children) { d._children = d.children; d._children.forEach(collapseBranch); d.children = null; } }
+    function expandBranch(d) { if (d._children) { d.children = d._children; d._children = null; } if (d.children) { d.children.forEach(expandBranch); } }
+    window.expandAll = () => { expandBranch(rootNode); updateTree(rootNode); };
+    window.collapseAll = () => { if (rootNode.children) { rootNode.children.forEach(collapseBranch); } updateTree(rootNode); };
+    window.resetView = () => { if (rootNode.children) { rootNode.children.forEach(d_child => { if (d_child.children || d_child._children) { collapseBranch(d_child); } }); } if (rootNode._children && !rootNode.children) { rootNode.children = rootNode._children; rootNode._children = null; } updateTree(rootNode); };
+
+    function updateTree(source) {
+      const treeLayoutData = treemap(rootNode);
+      let nodes = treeLayoutData.descendants();
+      let links = treeLayoutData.descendants().slice(1);
+
+      let minX = 0;
+      let maxX = 0;
+      if (nodes.length > 0) {
+        minX = d3.min(nodes, d => d.x);
+        maxX = d3.max(nodes, d => d.x);
+      }
+
+      let neededHeight = Math.max(initialSvgHeight, maxX - minX + margin.top + margin.bottom + 100);
+      svgElement.transition().duration(duration / 2).attr("height", neededHeight);
+      g.transition().duration(duration / 2).attr("transform", `translate(${margin.left},${margin.top - minX + 40})`);
+
+      nodes.forEach(d => { d.y = d.depth * 400; }); // Adjust horizontal separation if needed
+
+      const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++nodeCounter));
+      const nodeEnter = node.enter().append('g')
+        .attr('class', d => "node" + (d.children || d._children ? " node--internal" : " node--leaf") + (d._children ? " _children" : ""))
+        .attr('transform', d => `translate(${source.y0},${source.x0})`)
+        .on('click', (event, d) => { if (d.children) { d._children = d.children; d.children = null; } else if (d._children) { d.children = d._children; d._children = null; } updateTree(d); })
+        .style('cursor', d => (d.children || d._children) ? 'pointer' : 'default');
+
+      nodeEnter.append('circle').attr('r', 1e-6);
+
+      nodeEnter.append('text')
+        .attr('dy', '.35em')
+        .attr('x', d => d.children || d._children ? -14 : 14)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .style("fill-opacity", 1e-6)
+        .call(wrapText, 380);
+
+      const nodeUpdate = nodeEnter.merge(node);
+      nodeUpdate.transition().duration(duration)
+        .attr('transform', d => `translate(${d.y},${d.x})`)
+        .attr('class', d => "node" + (d.children ? " node--internal" : " node--leaf") + (d._children ? " node--internal _children" : ""));
+
+      nodeUpdate.select('circle').attr('r', 8.5)
+        .style('fill', d => {
+            let palette;
+            if (d.depth === 0) {
+                palette = levelSpecificPalettes[0];
+            } else if (d.depth === 1) {
+                palette = phaseColors[d.data.originalStageName] || phaseColors.Default;
+            } else {
+                palette = levelSpecificPalettes[d.depth] || levelSpecificPalettes.default;
+            }
+            if (d._children) return palette.collapsedFill;
+            if (d.children) return palette.fill;
+            return "#fff";
+        })
+        .style('stroke', d => {
+            let palette;
+            if (d.depth === 0) {
+                palette = levelSpecificPalettes[0];
+            } else if (d.depth === 1) {
+                palette = phaseColors[d.data.originalStageName] || phaseColors.Default;
+            } else {
+                palette = levelSpecificPalettes[d.depth] || levelSpecificPalettes.default;
+            }
+            return palette.stroke;
+        });
+      nodeUpdate.select('text').style("fill-opacity", 1).call(wrapText, 380);
+
+      const nodeExit = node.exit().transition().duration(duration).attr('transform', d => `translate(${source.y},${source.x})`).remove();
+      nodeExit.select('circle').attr('r', 1e-6);
+      nodeExit.select('text').style('fill-opacity', 1e-6);
+
+      const link = g.selectAll('path.link').data(links, d => d.id);
+      const linkEnter = link.enter().insert('path', "g").attr('class', 'link').attr('d', d => { const o = { x: source.x0, y: source.y0 }; return diagonal(o, o); });
+
+      linkEnter.merge(link).transition().duration(duration).attr('d', d => diagonal(d, d.parent))
+        .style('stroke', d => {
+            const sourceNode = d.parent;
+            if (!sourceNode) return phaseColors.Default.stroke;
+            const l1AncestorName = sourceNode.data.originalStageName;
+            const colorPalette = phaseColors[l1AncestorName] || phaseColors.Default;
+            return colorPalette.stroke;
+        });
+      link.exit().transition().duration(duration).attr('d', d => { const o = { x: source.x, y: source.y }; return diagonal(o, o); }).remove();
+      nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+    }
+
+    function diagonal(s, d) { return `M ${s.y} ${s.x} C ${(s.y + d.y) / 2} ${s.x}, ${(s.y + d.y) / 2} ${d.x}, ${d.y} ${d.x}`; }
+
+    function wrapText(textElements, maxWidth) {
+        const textPartColors = {
+            name: '#343a40',
+            count: '#0056b3'
+        };
+        const countRegex = /(\s\(Total Count: \d+\))$/;
+
+        textElements.each(function () {
+            const textD3 = d3.select(this);
+            const originalNodeText = textD3.datum().data.name;
+            const x = parseFloat(textD3.attr("x") || 0);
+            const initialDy = textD3.attr("dy");
+            const textAnchor = textD3.attr("text-anchor");
+            const lineHeight = 1.1;
+
+            textD3.text(null);
+
+            let namePart = originalNodeText;
+            let countPartText = "";
+
+            const countMatch = originalNodeText.match(countRegex);
+            if (countMatch && originalNodeText.endsWith(countMatch[0])) {
+                namePart = originalNodeText.substring(0, originalNodeText.length - countMatch[0].length).trim();
+                countPartText = countMatch[0].trim();
+            }
+
+            const tokens = [];
+            namePart.split(/\s+/).filter(Boolean).forEach(word => {
+                tokens.push({ text: word, type: 'name' });
+            });
+            if (countPartText) {
+                tokens.push({ text: countPartText, type: 'count' });
+            }
+
+            if (tokens.length === 0 && originalNodeText) {
+                tokens.push({ text: originalNodeText, type: 'name' });
+            }
+
+            let currentTspan = textD3.append("tspan").attr("x", x).attr("dy", initialDy);
+            if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
+
+            let lineTokens = [];
+
+            for (let i = 0; i < tokens.length; i++) {
+                const tokenObj = tokens[i];
+
+                lineTokens.push(tokenObj);
+                currentTspan.text(lineTokens.map(t => t.text).join(" "));
+
+                if (currentTspan.node().getComputedTextLength() > maxWidth && lineTokens.length > 1) {
+                    lineTokens.pop();
+
+                    currentTspan.text(null);
+                    lineTokens.forEach((prevToken, idx) => {
+                        currentTspan.append("tspan")
+                            .text((idx > 0 ? " " : "") + prevToken.text)
+                            .style("fill", textPartColors[prevToken.type] || textPartColors.name)
+                            .style("font-weight", prevToken.type === 'count' ? "bold" : "normal");
+                    });
+
+                    lineTokens = [tokenObj];
+                    currentTspan = textD3.append("tspan").attr("x", x).attr("dy", lineHeight + "em");
+                    if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
+                }
+            }
+
+            currentTspan.text(null);
+            lineTokens.forEach((token, idx) => {
+                currentTspan.append("tspan")
+                    .text((idx > 0 ? " " : "") + token.text)
+                    .style("fill", textPartColors[token.type] || textPartColors.name)
+                    .style("font-weight", token.type === 'count' ? "bold" : "normal");
+            });
+
+            if (textD3.selectAll("tspan > tspan").empty() && textD3.select("tspan").text().length === 0 && originalNodeText) {
+                let t = textD3.select("tspan");
+                let displayText = originalNodeText;
+                t.text(displayText).style("fill", textPartColors.name);
+                if (t.node() && t.node().getComputedTextLength() > maxWidth && displayText.length > 20) {
+                    let estimatedChars = Math.floor(maxWidth / (t.node().getComputedTextLength()/displayText.length) );
+                    displayText = displayText.substring(0, Math.max(0, estimatedChars - 3)) + "...";
+                    t.text(displayText);
+                }
+            }
+        });
+    }
+  </script>
+</body>
+</html>

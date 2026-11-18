@@ -16,6 +16,17 @@ A Mac menu bar app for arranging windows and setting up a workspace. Its main ar
 
 ---
 
+## Architecture & Code Graph (Graphify)
+
+Snapboard's structural dependency graph and architecture call flows are generated via `graphify`:
+
+- **[Interactive Visual Graph](graphify-out/graph.html)**: Interactive 2D/3D force-directed node map.
+- **[Call-Flow & Architecture View](graphify-out/snapboard-callflow.html)**: Mermaid-based call flows and component interaction tables.
+- **[D3 Collapsible Tree](graphify-out/GRAPH_TREE.html)**: Hierarchical module breakdown.
+- **[Structural Report](graphify-out/GRAPH_REPORT.md)**: God nodes, community clusters, and dependency metrics.
+
+---
+
 ## 1. Download the app (easiest)
 
 GitHub builds Snapboard for you every time the code changes. No Xcode needed.

@@ -1,0 +1,260 @@
+{
+  ".github/workflows/build.yml": {
+    "mtime": 1791879500.640626,
+    "seen": 1795028262.997896,
+    "ast_hash": "eb819bbc10b13d397d2bc24cb74ea4e3",
+    "semantic_hash": ""
+  },
+  "Package.swift": {
+    "mtime": 1791879500.6408062,
+    "seen": 1795028262.997899,
+    "ast_hash": "7eb3cf359d180a99999b7014ae8fb3f1",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/AppDelegate.swift": {
+    "mtime": 1795026018.2127464,
+    "seen": 1795028262.9979,
+    "ast_hash": "7fd7d37427eba9ca322b472acccb3dc3",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/AppModel.swift": {
+    "mtime": 1794986730.8578393,
+    "seen": 1795028262.997901,
+    "ast_hash": "64ce9caea439f5a70d45019ed71178a0",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/AutomationRuntime.swift": {
+    "mtime": 1794986735.789546,
+    "seen": 1795028262.9979022,
+    "ast_hash": "f23cbd77f05fa6eb7e3067c35f6fe6c0",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/AutomationUI.swift": {
+    "mtime": 1794986740.8355715,
+    "seen": 1795028262.9979022,
+    "ast_hash": "59b185688b9a0fe058a5d0b753b2cbf1",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/CustomSurfaces.swift": {
+    "mtime": 1794986707.7132895,
+    "seen": 1795028262.997903,
+    "ast_hash": "366106eadf912c85cd5dfaf1b762cf35",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/DockPresetUI.swift": {
+    "mtime": 1794986738.2259393,
+    "seen": 1795028262.997903,
+    "ast_hash": "c8199c866afccdf06a28e233f511e29f",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/DropShelf.swift": {
+    "mtime": 1795025941.1913195,
+    "seen": 1795028262.9979038,
+    "ast_hash": "26b6963f0eb31a68f3c5bf24a76c8519",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/FullscreenLauncher.swift": {
+    "mtime": 1795025963.8574138,
+    "seen": 1795028262.9979038,
+    "ast_hash": "212581a2726934e27caaaa028abdc2e9",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/Hotkeys.swift": {
+    "mtime": 1794986702.0014825,
+    "seen": 1795028262.9979048,
+    "ast_hash": "c4166c32a1547ad33b7f2a694e336b78",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/LayoutEditor.swift": {
+    "mtime": 1791879500.6416314,
+    "seen": 1795028262.997906,
+    "ast_hash": "c8a2aedc0bbed387362858207dd5891b",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/LibraryLauncher.swift": {
+    "mtime": 1794986736.0071924,
+    "seen": 1795028262.997906,
+    "ast_hash": "8c48a043eea14c05b7008b6cc9da14eb",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/Recording.swift": {
+    "mtime": 1794986759.4112947,
+    "seen": 1795028262.997907,
+    "ast_hash": "ab5191f25bad9aad137ec287e3c8c906",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/SettingsView.swift": {
+    "mtime": 1794986763.6769137,
+    "seen": 1795028262.997907,
+    "ast_hash": "acec9a3f556a6e42eb9abc3e3eef7465",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/Snapper.swift": {
+    "mtime": 1794986706.1725776,
+    "seen": 1795028262.9979079,
+    "ast_hash": "099912770e50b262506a1521c5c97fea",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/VinylWidget.swift": {
+    "mtime": 1795025899.6688287,
+    "seen": 1795028262.9979079,
+    "ast_hash": "c608825ff8054679a1e02865d0c8a927",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/Widgets.swift": {
+    "mtime": 1795026004.6229575,
+    "seen": 1795028262.997909,
+    "ast_hash": "20ab70745259a28ce83003c77ff377bb",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/WindowMover.swift": {
+    "mtime": 1794986700.609929,
+    "seen": 1795028262.99791,
+    "ast_hash": "9956ebb87d3fca6964e3cde182d9b68c",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/WorkspaceEditor.swift": {
+    "mtime": 1794986764.8473253,
+    "seen": 1795028262.99791,
+    "ast_hash": "4d547e162ea481ddb5bd79db49d53bae",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/ZoneOverlay.swift": {
+    "mtime": 1791879500.6420343,
+    "seen": 1795028262.997911,
+    "ast_hash": "4b94b15312373bab83a29dc13f1c3000",
+    "semantic_hash": ""
+  },
+  "Sources/Snapboard/main.swift": {
+    "mtime": 1791879500.6421018,
+    "seen": 1795028262.997911,
+    "ast_hash": "914387d34c36082b640fb06874d26601",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Automation.swift": {
+    "mtime": 1794954057.9931803,
+    "seen": 1795028262.9979122,
+    "ast_hash": "e25d8355c59c47ced4d6870909c5293e",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/DockPresets.swift": {
+    "mtime": 1794954057.9933403,
+    "seen": 1795028262.9979122,
+    "ast_hash": "99e552758c1b0bf9a4a52333e0626771",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Feed.swift": {
+    "mtime": 1791879500.6421962,
+    "seen": 1795028262.9979131,
+    "ast_hash": "b58906a67abac85bc1b25bd68e4d18e0",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/ItemLibrary.swift": {
+    "mtime": 1794986711.636871,
+    "seen": 1795028262.9979131,
+    "ast_hash": "5f2af2d9eebb910cb09f696f7c23db46",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Layout.swift": {
+    "mtime": 1791879500.6422884,
+    "seen": 1795028262.997914,
+    "ast_hash": "bde5268cd680e5f76caad5b44fcbdad6",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/ScreenMath.swift": {
+    "mtime": 1791879500.6423516,
+    "seen": 1795028262.997914,
+    "ast_hash": "2237e95836f64040af6e94a041b3a87b",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Store.swift": {
+    "mtime": 1794954057.9938257,
+    "seen": 1795028262.9979148,
+    "ast_hash": "15ab28ed2ffaa61bae7e2e715935eb7f",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Surfaces.swift": {
+    "mtime": 1794954057.9940383,
+    "seen": 1795028262.9979148,
+    "ast_hash": "9ef5ed2cde478eec684618631dc06f93",
+    "semantic_hash": ""
+  },
+  "Sources/SnapboardCore/Workspace.swift": {
+    "mtime": 1794954057.9943805,
+    "seen": 1795028262.997916,
+    "ast_hash": "281526136fe0523837287d22e78401f0",
+    "semantic_hash": ""
+  },
+  "Tests/SnapboardCoreTests/AutomationTests.swift": {
+    "mtime": 1794954057.9945261,
+    "seen": 1795028262.997917,
+    "ast_hash": "87fb9fc6c293b09623731e137feb64e6",
+    "semantic_hash": ""
+  },
+  "Tests/SnapboardCoreTests/CoreTests.swift": {
+    "mtime": 1794954057.9950523,
+    "seen": 1795028262.997917,
+    "ast_hash": "17fa632cf55374d8577aae75dbc592f1",
+    "semantic_hash": ""
+  },
+  "Tests/SnapboardCoreTests/DockPresetTests.swift": {
+    "mtime": 1794954057.995185,
+    "seen": 1795028262.997918,
+    "ast_hash": "ef67ff4dcc57db8acfd3fd6aa433e3d6",
+    "semantic_hash": ""
+  },
+  "Tests/SnapboardCoreTests/ItemLibraryTests.swift": {
+    "mtime": 1794986806.5388436,
+    "seen": 1795028262.997918,
+    "ast_hash": "38cb4b6aa6f9768b747bd390b740e67c",
+    "semantic_hash": ""
+  },
+  "Tests/SnapboardCoreTests/SurfacesTests.swift": {
+    "mtime": 1794954057.9954467,
+    "seen": 1795028262.997919,
+    "ast_hash": "b8595dfba8d6b7fa53891b31a666d2b4",
+    "semantic_hash": ""
+  },
+  "scripts/build-app.sh": {
+    "mtime": 1794978153.7354155,
+    "seen": 1795028262.997919,
+    "ast_hash": "c084434229a6c2611495afd4df95f486",
+    "semantic_hash": ""
+  },
+  "scripts/make-icon.py": {
+    "mtime": 1791879500.6427324,
+    "seen": 1795028262.99792,
+    "ast_hash": "2ad0e9e90340fae4f63019356a9cf08f",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1793862950.93587,
+    "seen": 1795028262.99792,
+    "ast_hash": "975c87eaca34ada88660eccadb7eddda",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1794954057.9891443,
+    "seen": 1795028262.997921,
+    "ast_hash": "600f9398f34229a7179050bd5b81292d",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1795026080.6529186,
+    "seen": 1795028262.997921,
+    "ast_hash": "1c2dc785af6267f5bf7e9751b504fc99",
+    "semantic_hash": ""
+  },
+  "docs/workspace-design.md": {
+    "mtime": 1794954057.9957056,
+    "seen": 1795028262.997922,
+    "ast_hash": "ad4072bb41f3849db2c510cc7c327206",
+    "semantic_hash": ""
+  },
+  "Resources/AppIcon.png": {
+    "mtime": 1791879500.6412253,
+    "seen": 1795028262.997922,
+    "ast_hash": "972b5031f697f915bf5a012fb738a786",
+    "semantic_hash": ""
+  }
+}
