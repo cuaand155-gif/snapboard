@@ -75,13 +75,27 @@ struct LibraryLauncherView: View {
     @State private var selectedWorkspaces = Set<UUID>()
     @State private var newGroup = ""
     @State private var selectedGroup: UUID?
+    @State private var selectedTag: String?
+    @State private var selectedLauncherItemID: UUID?
+    @State private var launcherGridWidth: CGFloat = 0
+    @State private var keyMonitor: Any?
     @State private var errorMessage: String?
 
     init(onAction: ((UUID) -> Void)? = nil) {
         self.onAction = onAction
     }
 
-    private var results: [SnapboardCore.LibraryItem] { model.state.libraryItems.filter { $0.matches(query) } }
+    private var availableTags: [String] {
+        SnapboardCore.LibraryItem.normalizedTags(model.state.libraryItems.flatMap(\.tags))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private var results: [SnapboardCore.LibraryItem] {
+        model.state.libraryItems.filter { item in
+            item.matches(query) &&
+                (selectedTag == nil || item.tags.contains { $0.caseInsensitiveCompare(selectedTag!) == .orderedSame })
+        }
+    }
     private var activeGroup: LauncherGroup? { model.state.launcherGroups.first { $0.id == selectedGroup } }
 
     var body: some View {
@@ -98,6 +112,8 @@ struct LibraryLauncherView: View {
         }
         .padding(18)
         .frame(minWidth: 640, minHeight: 520)
+        .onAppear(perform: installKeyMonitor)
+        .onDisappear(perform: removeKeyMonitor)
         .alert("Snapboard library", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: { Text(errorMessage ?? "") }
@@ -107,6 +123,19 @@ struct LibraryLauncherView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Saved items").font(.headline)
+                if !availableTags.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            tagChip("All", isSelected: selectedTag == nil) { selectedTag = nil }
+                            ForEach(availableTags, id: \.self) { tag in
+                                let active = selectedTag?.caseInsensitiveCompare(tag) == .orderedSame
+                                tagChip(tag, isSelected: active) {
+                                    selectedTag = active ? nil : tag
+                                }
+                            }
+                        }
+                    }
+                }
                 List(results) { item in
                     HStack {
                         Image(systemName: symbol(for: item.kind)).frame(width: 24)
@@ -178,15 +207,38 @@ struct LibraryLauncherView: View {
                     let groupItems = group.itemIDs.compactMap { id in results.first { $0.id == id } }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 115))], spacing: 12) {
                         ForEach(groupItems) { item in
-                            Button { errorMessage = model.openLibraryItem(item, onAction: onAction) } label: {
-                                VStack(spacing: 8) {
-                                    Image(systemName: symbol(for: item.kind)).font(.largeTitle)
-                                    Text(item.title).lineLimit(2)
+                            let isSelected = selectedLauncherItemID == item.id
+                            Group {
+                                if isSelected {
+                                    Button {
+                                        selectedLauncherItemID = item.id
+                                        errorMessage = model.openLibraryItem(item, onAction: onAction)
+                                    } label: {
+                                        launcherTileLabel(item)
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                } else {
+                                    Button {
+                                        selectedLauncherItemID = item.id
+                                        errorMessage = model.openLibraryItem(item, onAction: onAction)
+                                    } label: {
+                                        launcherTileLabel(item)
+                                    }
+                                    .buttonStyle(.bordered)
                                 }
-                                .frame(maxWidth: .infinity, minHeight: 80)
                             }
-                            .buttonStyle(.bordered)
                         }
+                    }
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.task(id: geo.size.width) { launcherGridWidth = geo.size.width }
+                        }
+                    )
+                    .task(id: groupItems.map(\.id)) {
+                        if let current = selectedLauncherItemID, groupItems.contains(where: { $0.id == current }) {
+                            return
+                        }
+                        selectedLauncherItemID = groupItems.first?.id
                     }
                     ScrollView {
                         ForEach(results) { item in
@@ -209,6 +261,74 @@ struct LibraryLauncherView: View {
 
     private func symbol(for kind: SnapboardCore.LibraryItem.Kind) -> String {
         switch kind { case .application: return "app"; case .link: return "link"; case .folder: return "folder"; case .action: return "bolt" }
+    }
+
+    @ViewBuilder
+    private func tagChip(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        if isSelected {
+            Button(label, action: action)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        } else {
+            Button(label, action: action)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+    }
+
+    private func launcherTileLabel(_ item: SnapboardCore.LibraryItem) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol(for: item.kind)).font(.largeTitle)
+            Text(item.title).lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, minHeight: 80)
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleLauncherKeyDown(event)
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+    }
+
+    private func handleLauncherKeyDown(_ event: NSEvent) -> NSEvent? {
+        guard selection == 1,
+              !(NSApp.keyWindow?.firstResponder is NSTextView),
+              let group = activeGroup else { return event }
+        let groupItems = group.itemIDs.compactMap { id in results.first { $0.id == id } }
+        guard !groupItems.isEmpty else { return event }
+        let currentIndex = groupItems.firstIndex(where: { $0.id == selectedLauncherItemID }) ?? 0
+        let columns = max(1, Int((launcherGridWidth + 12) / (115 + 12)))
+        switch event.keyCode {
+        case 123: // Left
+            let nextIndex = (currentIndex - 1 + groupItems.count) % groupItems.count
+            selectedLauncherItemID = groupItems[nextIndex].id
+            return nil
+        case 124: // Right
+            let nextIndex = (currentIndex + 1) % groupItems.count
+            selectedLauncherItemID = groupItems[nextIndex].id
+            return nil
+        case 126: // Up
+            let nextIndex = max(0, currentIndex - columns)
+            selectedLauncherItemID = groupItems[nextIndex].id
+            return nil
+        case 125: // Down
+            let nextIndex = min(groupItems.count - 1, currentIndex + columns)
+            selectedLauncherItemID = groupItems[nextIndex].id
+            return nil
+        case 36, 76: // Return / Enter
+            errorMessage = model.openLibraryItem(groupItems[currentIndex], onAction: onAction)
+            return nil
+        default:
+            return event
+        }
     }
 
     private func openFirstSearchResult() {
@@ -313,16 +433,24 @@ struct LibraryLauncherView: View {
 
     private func importArchive() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.json]
+        panel.allowedContentTypes = [.json, .html]
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let data = try Data(contentsOf: url)
-            let merged = try LibraryArchive.importData(data, items: model.state.libraryItems, groups: model.state.launcherGroups)
-            var next = model.state
-            next.libraryItems = merged.items
-            next.launcherGroups = merged.groups
-            model.state = next
+            let ext = url.pathExtension.lowercased()
+            if ext == "html" || ext == "htm" {
+                let html = try String(contentsOf: url, encoding: .utf8)
+                var next = model.state
+                next.libraryItems = LibraryArchive.importHTMLBookmarks(html, into: next.libraryItems)
+                model.state = next
+            } else {
+                let data = try Data(contentsOf: url)
+                let merged = try LibraryArchive.importData(data, items: model.state.libraryItems, groups: model.state.launcherGroups)
+                var next = model.state
+                next.libraryItems = merged.items
+                next.launcherGroups = merged.groups
+                model.state = next
+            }
         } catch { errorMessage = "The library file is invalid or could not be read. No items were changed." }
     }
 }

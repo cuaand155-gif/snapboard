@@ -4,10 +4,10 @@ import SnapboardCore
 
 /// Owns the Carbon registrations for user-defined keyboard triggers. Rebuilding always
 /// unregisters the old refs first, including when shortcuts have been switched off.
-final class AutomationRuntime {
+final class AutomationRuntime: @unchecked Sendable {
     static let shared = AutomationRuntime()
 
-    private let signature: OSType = 0x4155_544F // "AUTO", distinct from built-in "SNAP"
+    private static let signature: OSType = 0x4155_544F // "AUTO", distinct from built-in "SNAP"
     private var registrations: [EventHotKeyRef] = []
     private var handler: EventHandlerRef?
     private var actionsByHotkeyID: [UInt32: UUID] = [:]
@@ -39,7 +39,7 @@ final class AutomationRuntime {
             let result = GetEventParameter(event, EventParamName(kEventParamDirectObject),
                                            EventParamType(typeEventHotKeyID), nil,
                                            MemoryLayout<EventHotKeyID>.size, nil, &hotkeyID)
-            guard result == noErr, hotkeyID.signature == AutomationRuntime.shared.signature else {
+            guard result == noErr, hotkeyID.signature == AutomationRuntime.signature else {
                 return OSStatus(eventNotHandledErr)
             }
             let keyID = hotkeyID.id
@@ -70,7 +70,7 @@ final class AutomationRuntime {
             let hotkeyID = UInt32(index + 1000)
             var ref: EventHotKeyRef?
             let result = RegisterEventHotKey(rule.shortcut.keyCode, rule.shortcut.modifiers,
-                                             EventHotKeyID(signature: signature, id: hotkeyID),
+                                             EventHotKeyID(signature: Self.signature, id: hotkeyID),
                                              GetApplicationEventTarget(), 0, &ref)
             if result == noErr, let ref {
                 registrations.append(ref)
@@ -131,8 +131,14 @@ final class AutomationRuntime {
                 })
                 if let error = error ?? nestedError { return error }
             case .activateWorkspace:
-                guard let id = UUID(uuidString: step.target), model.activateWorkspace(id) else {
+                guard let id = UUID(uuidString: step.target) else {
+                    return "Action “\(action.name)” has an invalid workspace target."
+                }
+                guard let errors = model.activateWorkspace(id, applyLayouts: true, launchItems: false, activateSurfaces: true) else {
                     return "Action “\(action.name)” refers to a workspace that no longer exists."
+                }
+                if !errors.isEmpty {
+                    return errors.joined(separator: " ")
                 }
             case .openURL:
                 guard let url = URL(string: step.target), NSWorkspace.shared.open(url) else {

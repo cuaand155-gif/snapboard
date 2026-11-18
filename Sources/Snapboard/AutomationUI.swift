@@ -5,7 +5,8 @@ import SwiftUI
 /// Edits the same saved actions used by library tiles and global keyboard triggers.
 struct AutomationEditorView: View {
     @ObservedObject private var model = AppModel.shared
-    @State private var message: String?
+    @State private var runError: String?
+    @State private var registrationErrors: [String] = []
 
     var body: some View {
         ScrollView {
@@ -19,9 +20,19 @@ struct AutomationEditorView: View {
                     Spacer()
                     Button("New action") { addAction() }
                 }
-                if let message {
-                    Text(message).foregroundStyle(.red).font(.callout)
-                        .accessibilityLabel("Automation error: \(message)")
+                if let runError {
+                    Text(runError).foregroundStyle(.red).font(.callout)
+                        .accessibilityLabel("Automation error: \(runError)")
+                }
+                if !registrationErrors.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(registrationErrors, id: \.self) { warning in
+                            Label(warning, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.red)
+                                .font(.callout)
+                        }
+                    }
+                    .accessibilityElement(children: .combine)
                 }
                 ForEach(model.state.savedActions) { action in
                     actionCard(action)
@@ -47,7 +58,7 @@ struct AutomationEditorView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 TextField("Action name", text: actionName(action.id)).font(.headline)
-                Button("Run") { message = AutomationRuntime.shared.run(action) }
+                Button("Run") { runError = AutomationRuntime.shared.run(action) }
                     .disabled(AutomationValidation.invalidActionIDs([action]).contains(action.id))
                 Button("Remove", role: .destructive) { removeAction(action.id) }
             }
@@ -73,8 +84,7 @@ struct AutomationEditorView: View {
                 }
             }
             Text("Steps run from top to bottom").font(.subheadline.bold())
-            ForEach(action.steps.indices, id: \.self) { index in
-                let step = action.steps[index]
+            ForEach(Array(action.steps.enumerated()), id: \.element.id) { index, step in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(index + 1).").foregroundStyle(.secondary).frame(width: 22, alignment: .trailing)
                     Text(step.kind.title).frame(width: 145, alignment: .leading)
@@ -84,9 +94,9 @@ struct AutomationEditorView: View {
                             .foregroundStyle(.red).help("Choose a valid target for this step.")
                     }
                     Spacer(minLength: 0)
-                    Button { moveStep(action.id, from: index, by: -1) } label: { Image(systemName: "arrow.up") }
+                    Button { moveStep(action.id, stepID: step.id, by: -1) } label: { Image(systemName: "arrow.up") }
                         .disabled(index == 0).help("Move step up")
-                    Button { moveStep(action.id, from: index, by: 1) } label: { Image(systemName: "arrow.down") }
+                    Button { moveStep(action.id, stepID: step.id, by: 1) } label: { Image(systemName: "arrow.down") }
                         .disabled(index == action.steps.count - 1).help("Move step down")
                     Button { removeStep(action.id, step.id) } label: { Image(systemName: "minus.circle") }
                         .help("Remove step")
@@ -97,9 +107,36 @@ struct AutomationEditorView: View {
                     Button(kind.title) { addStep(kind, to: action.id) }
                 }
             }
+            actionUsageSummary(action)
         }
         .padding(14)
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func actionUsageSummary(_ action: SavedAction) -> some View {
+        let workspaceNames: String = {
+            if action.workspaceIDs.isEmpty { return "All workspaces" }
+            let names = model.state.workspaces
+                .filter { action.workspaceIDs.contains($0.id) }
+                .map(\.name)
+            return names.isEmpty ? "None" : names.joined(separator: ", ")
+        }()
+        let triggerNames = model.state.automationRules
+            .filter { $0.actionID == action.id }
+            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Unnamed trigger" : $0.name }
+        let libraryNames = model.state.libraryItems
+            .filter { $0.kind == .action && UUID(uuidString: $0.target) == action.id }
+            .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Untitled item" : $0.title }
+
+        return VStack(alignment: .leading, spacing: 2) {
+            Text("Used by").font(.subheadline.bold())
+            Text("Workspaces: \(workspaceNames)")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Triggers: \(triggerNames.isEmpty ? "None" : triggerNames.joined(separator: ", "))")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Library items: \(libraryNames.isEmpty ? "None" : libraryNames.joined(separator: ", "))")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     @ViewBuilder
@@ -172,27 +209,27 @@ struct AutomationEditorView: View {
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func update(_ change: (inout SavedState) -> Void) {
+    private func update(refresh: Bool = true, _ change: (inout SavedState) -> Void) {
         var next = model.state
         change(&next)
         model.state = next
-        refreshRegistrations()
+        if refresh { refreshRegistrations() }
     }
 
     private func refreshRegistrations() {
-        message = AutomationRuntime.shared.refresh().first
+        registrationErrors = AutomationRuntime.shared.refresh()
     }
 
-    private func addAction() { update { $0.savedActions.append(SavedAction(name: "New action")) } }
+    private func addAction() { update(refresh: false) { $0.savedActions.append(SavedAction(name: "New action")) } }
     private func clearMissingWorkspaces(_ actionID: UUID) {
-        update { state in
+        update(refresh: false) { state in
             guard let i = state.savedActions.firstIndex(where: { $0.id == actionID }) else { return }
             let existing = Set(state.workspaces.map(\.id))
             state.savedActions[i].workspaceIDs.removeAll { !existing.contains($0) }
         }
     }
     private func removeAction(_ id: UUID) {
-        update {
+        update(refresh: true) {
             $0.savedActions.removeAll { $0.id == id }
             $0.automationRules.removeAll { $0.actionID == id }
         }
@@ -204,43 +241,43 @@ struct AutomationEditorView: View {
         case .activateWorkspace: target = model.state.workspaces.first?.id.uuidString ?? ""
         default: target = ""
         }
-        update { state in
+        update(refresh: false) { state in
             guard let i = state.savedActions.firstIndex(where: { $0.id == actionID }) else { return }
             state.savedActions[i].steps.append(AutomationStep(kind: kind, target: target))
         }
     }
     private func removeStep(_ actionID: UUID, _ stepID: UUID) {
-        update { state in
+        update(refresh: false) { state in
             guard let index = state.savedActions.firstIndex(where: { $0.id == actionID }) else { return }
             state.savedActions[index].steps.removeAll { $0.id == stepID }
         }
     }
-    private func moveStep(_ actionID: UUID, from: Int, by amount: Int) {
-        update { state in
-            guard let index = state.savedActions.firstIndex(where: { $0.id == actionID }) else { return }
+    private func moveStep(_ actionID: UUID, stepID: UUID, by amount: Int) {
+        update(refresh: false) { state in
+            guard let index = state.savedActions.firstIndex(where: { $0.id == actionID }),
+                  let from = state.savedActions[index].steps.firstIndex(where: { $0.id == stepID }) else { return }
             let destination = from + amount
-            guard state.savedActions[index].steps.indices.contains(from),
-                  state.savedActions[index].steps.indices.contains(destination) else { return }
+            guard state.savedActions[index].steps.indices.contains(destination) else { return }
             state.savedActions[index].steps.swapAt(from, destination)
         }
     }
     private func addRule() {
         guard let actionID = model.state.savedActions.first?.id else { return }
-        update { $0.automationRules.append(AutomationRule(name: "New trigger", actionID: actionID,
+        update(refresh: true) { $0.automationRules.append(AutomationRule(name: "New trigger", actionID: actionID,
             shortcut: KeyboardShortcut(keyCode: UInt32(kVK_ANSI_K),
                                        modifiers: ShortcutModifiers.command | ShortcutModifiers.option))) }
     }
-    private func removeRule(_ id: UUID) { update { $0.automationRules.removeAll { $0.id == id } } }
+    private func removeRule(_ id: UUID) { update(refresh: true) { $0.automationRules.removeAll { $0.id == id } } }
 
     private func actionName(_ id: UUID) -> Binding<String> {
         Binding(get: { model.state.savedActions.first(where: { $0.id == id })?.name ?? "" },
-                set: { value in update { state in
+                set: { value in update(refresh: false) { state in
                     if let i = state.savedActions.firstIndex(where: { $0.id == id }) { state.savedActions[i].name = value }
                 } })
     }
     private func workspaceAssociation(_ actionID: UUID, _ workspaceID: UUID) -> Binding<Bool> {
         Binding(get: { model.state.savedActions.first(where: { $0.id == actionID })?.workspaceIDs.contains(workspaceID) ?? false },
-                set: { selected in update { state in
+                set: { selected in update(refresh: false) { state in
                     guard let i = state.savedActions.firstIndex(where: { $0.id == actionID }) else { return }
                     if selected {
                         if !state.savedActions[i].workspaceIDs.contains(workspaceID) { state.savedActions[i].workspaceIDs.append(workspaceID) }
@@ -251,7 +288,7 @@ struct AutomationEditorView: View {
     }
     private func stepTargetBinding(_ actionID: UUID, _ stepID: UUID) -> Binding<String> {
         Binding(get: { model.state.savedActions.first(where: { $0.id == actionID })?.steps.first(where: { $0.id == stepID })?.target ?? "" },
-                set: { value in update { state in
+                set: { value in update(refresh: false) { state in
                     guard let i = state.savedActions.firstIndex(where: { $0.id == actionID }),
                           let j = state.savedActions[i].steps.firstIndex(where: { $0.id == stepID }) else { return }
                     state.savedActions[i].steps[j].target = value
@@ -259,7 +296,7 @@ struct AutomationEditorView: View {
     }
     private func ruleName(_ id: UUID) -> Binding<String> {
         Binding(get: { model.state.automationRules.first(where: { $0.id == id })?.name ?? "" },
-                set: { value in update { if let i = $0.automationRules.firstIndex(where: { $0.id == id }) { $0.automationRules[i].name = value } } })
+                set: { value in update(refresh: false) { if let i = $0.automationRules.firstIndex(where: { $0.id == id }) { $0.automationRules[i].name = value } } })
     }
     private func ruleEnabled(_ id: UUID) -> Binding<Bool> {
         Binding(get: { model.state.automationRules.first(where: { $0.id == id })?.enabled ?? false },

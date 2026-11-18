@@ -15,13 +15,18 @@ enum WindowMover {
 
     /// Clears a stale ad-hoc signature entry from an earlier build before re-requesting access.
     static func refreshPermissionAfterUpdate() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
-        task.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "com.alexi.snapboard"]
-        try? task.run()
-        task.waitUntilExit()
-        askForPermission()
-        openAccessibilitySettings()
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.alexi.snapboard"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+            task.arguments = ["reset", "Accessibility", bundleID]
+            try? task.run()
+            task.waitUntilExit()
+            DispatchQueue.main.async {
+                askForPermission()
+                openAccessibilitySettings()
+            }
+        }
     }
 
     static func openAccessibilitySettings() {
@@ -37,8 +42,9 @@ enum WindowMover {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &value) == .success,
-              let window = value else { return nil }
-        return (window as! AXUIElement)
+              let window = value,
+              CFGetTypeID(window) == AXUIElementGetTypeID() else { return nil }
+        return unsafeBitCast(window, to: AXUIElement.self)
     }
 
     /// The window's frame in AppKit coordinates.
@@ -46,10 +52,14 @@ enum WindowMover {
         var posRef: CFTypeRef?, sizeRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &posRef) == .success,
               AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
-              let posValue = posRef, let sizeValue = sizeRef else { return nil }
+              let posValue = posRef, let sizeValue = sizeRef,
+              CFGetTypeID(posValue) == AXValueGetTypeID(),
+              CFGetTypeID(sizeValue) == AXValueGetTypeID() else { return nil }
+        let axPos = unsafeBitCast(posValue, to: AXValue.self)
+        let axSize = unsafeBitCast(sizeValue, to: AXValue.self)
         var pos = CGPoint.zero, size = CGSize.zero
-        AXValueGetValue(posValue as! AXValue, .cgPoint, &pos)
-        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        guard AXValueGetValue(axPos, .cgPoint, &pos),
+              AXValueGetValue(axSize, .cgSize, &size) else { return nil }
         return ScreenMath.appKitRect(forAccessibility: CGRect(origin: pos, size: size), mainScreenHeight: NSScreen.mainHeight)
     }
 

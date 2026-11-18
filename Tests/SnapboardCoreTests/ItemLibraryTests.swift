@@ -44,4 +44,21 @@ final class ItemLibraryTests: XCTestCase {
         XCTAssertEqual(Set(once[0].workspaceIDs), Set([first.id, second.id]))
         XCTAssertEqual(LibraryItem.addingLegacyWorkspaceItems(from: [first, second], to: once), once)
     }
+
+    func testImportHTMLBookmarksSkipsInvalidAndDuplicates() {
+        let existing = [LibraryItem(kind: .link, title: "Docs", target: "https://example.com/docs")]
+        let html = """
+        <DL><p>
+            <DT><A HREF="https://example.com/docs">Docs Dup</A>
+            <DT><A HREF="https://swift.org/?a=1&amp;b=2">Swift &amp; More</A>
+            <DT><A HREF="javascript:alert(1)">Bad Script</A>
+            <DT><A HREF="https://apple.com"></A>
+        </DL><p>
+        """
+        let merged = LibraryArchive.importHTMLBookmarks(html, into: existing)
+        XCTAssertEqual(merged.count, 3)
+        XCTAssertEqual(merged[1].title, "Swift & More")
+        XCTAssertEqual(merged[1].target, "https://swift.org/?a=1&b=2")
+        XCTAssertEqual(merged[2].title, "apple.com")
+    }
 }

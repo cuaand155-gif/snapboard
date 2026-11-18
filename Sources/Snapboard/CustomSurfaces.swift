@@ -2,9 +2,28 @@ import AppKit
 import SwiftUI
 import SnapboardCore
 
+/// Per-panel observable state so hover and library updates mutate the existing SwiftUI view
+/// without replacing `panel.contentView` (`NSHostingView`).
+private final class CustomDockPanelState: ObservableObject {
+    @Published var dock: CustomDock
+    @Published var items: [SnapboardCore.LibraryItem]
+    @Published var expanded: Bool
+
+    init(dock: CustomDock, items: [SnapboardCore.LibraryItem], expanded: Bool) {
+        self.dock = dock
+        self.items = items
+        self.expanded = expanded
+    }
+}
+
 /// Owns the independent floating panels configured in SavedState.customDocks.
 final class CustomDockController {
-    private var panels: [UUID: NSPanel] = [:]
+    private struct DockEntry {
+        let panel: NSPanel
+        let state: CustomDockPanelState
+    }
+
+    private var entries: [UUID: DockEntry] = [:]
     private var expanded: Set<UUID> = []
     private let onOpen: (UUID) -> Void
 
@@ -16,9 +35,9 @@ final class CustomDockController {
         let screens = NSScreen.screens
         let active = state.customDocks.filter { $0.enabled && $0.applies(to: state.surfaceWorkspaceID) }
         let activeIDs = Set(active.map(\.id))
-        for id in panels.keys.filter({ !activeIDs.contains($0) }) {
-            panels[id]?.orderOut(nil)
-            panels.removeValue(forKey: id)
+        for id in entries.keys.filter({ !activeIDs.contains($0) }) {
+            entries[id]?.panel.orderOut(nil)
+            entries.removeValue(forKey: id)
             expanded.remove(id)
         }
         guard !screens.isEmpty else { return }
@@ -34,28 +53,41 @@ final class CustomDockController {
             edgeCounts[edge] = ordinal + 1
             let frame = Self.frame(for: dock, itemCount: resolved.count, expanded: isExpanded,
                                    on: screen, ordinal: ordinal)
-            let panel = panels[dock.id] ?? makePanel()
-            panels[dock.id] = panel
-            panel.title = dock.name
-            panel.contentView = NSHostingView(rootView: CustomDockBody(
-                dock: dock, items: resolved, expanded: isExpanded,
-                onOpen: onOpen, onHover: { [weak self] hovering in
-                    self?.setExpanded(hovering, for: dock.id)
-                }
-            ))
-            panel.setFrame(frame, display: true, animate: false)
-            panel.orderFrontRegardless()
+            let entry: DockEntry
+            if let existing = entries[dock.id] {
+                entry = existing
+                if entry.state.dock != dock { entry.state.dock = dock }
+                if entry.state.items != resolved { entry.state.items = resolved }
+                if entry.state.expanded != isExpanded { entry.state.expanded = isExpanded }
+            } else {
+                let panel = makePanel()
+                let panelState = CustomDockPanelState(dock: dock, items: resolved, expanded: isExpanded)
+                panel.contentView = NSHostingView(rootView: CustomDockBody(
+                    state: panelState,
+                    onOpen: onOpen,
+                    onHover: { [weak self] hovering in
+                        self?.setExpanded(hovering, for: dock.id)
+                    }
+                ))
+                entry = DockEntry(panel: panel, state: panelState)
+                entries[dock.id] = entry
+            }
+            entry.panel.title = dock.name
+            if entry.panel.frame != frame {
+                entry.panel.setFrame(frame, display: true, animate: false)
+            }
+            entry.panel.orderFrontRegardless()
         }
     }
 
     func stop() {
-        panels.values.forEach { $0.orderOut(nil) }
-        panels.removeAll()
+        entries.values.forEach { $0.panel.orderOut(nil) }
+        entries.removeAll()
         expanded.removeAll()
     }
 
     private func setExpanded(_ value: Bool, for id: UUID) {
-        if !value, let panel = panels[id], panel.frame.contains(NSEvent.mouseLocation) { return }
+        if !value, let entry = entries[id], entry.panel.frame.contains(NSEvent.mouseLocation) { return }
         let changed = value ? expanded.insert(id).inserted : expanded.remove(id) != nil
         if changed { sync() }
     }
@@ -107,17 +139,15 @@ final class CustomDockController {
 }
 
 private struct CustomDockBody: View {
-    let dock: CustomDock
-    let items: [SnapboardCore.LibraryItem]
-    let expanded: Bool
+    @ObservedObject var state: CustomDockPanelState
     let onOpen: (UUID) -> Void
     let onHover: (Bool) -> Void
 
-    private var horizontal: Bool { dock.placement == .top || dock.placement == .bottom }
+    private var horizontal: Bool { state.dock.placement == .top || state.dock.placement == .bottom }
 
     var body: some View {
         Group {
-            if expanded {
+            if state.expanded {
                 if horizontal {
                     HStack(spacing: 5) { buttons }
                 } else {
@@ -126,22 +156,22 @@ private struct CustomDockBody: View {
             } else {
                 Image(systemName: horizontal ? "ellipsis" : "ellipsis.vertical")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .accessibilityLabel("Show \(dock.name)")
+                    .accessibilityLabel("Show \(state.dock.name)")
             }
         }
-        .padding(expanded ? 7 : 1)
+        .padding(state.expanded ? 7 : 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: expanded ? 14 : 8))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: state.expanded ? 14 : 8))
         .onHover(perform: onHover)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(dock.name)
+        .accessibilityLabel(state.dock.name)
     }
 
     @ViewBuilder private var buttons: some View {
-        if items.isEmpty {
-            Text(dock.name).font(.caption).lineLimit(1).foregroundStyle(.secondary)
+        if state.items.isEmpty {
+            Text(state.dock.name).font(.caption).lineLimit(1).foregroundStyle(.secondary)
         } else {
-            ForEach(items) { item in
+            ForEach(state.items) { item in
                 Button { onOpen(item.id) } label: {
                     VStack(spacing: 2) {
                         Image(systemName: "square.grid.2x2")
@@ -379,31 +409,66 @@ enum CustomSurfacesMenu {
     }
 }
 
-/// Searchable keyboard entry for menu groups; Return opens the first match.
+/// Searchable keyboard entry for menu groups; arrow keys move selection and Return opens it.
 struct MenuGroupPickerView: View {
     @ObservedObject private var model = AppModel.shared
     @State private var query = ""
+    @State private var selectedItemID: UUID?
+    @State private var keyMonitor: Any?
+    @FocusState private var searchFocused: Bool
     let onOpen: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Search menu items", text: $query)
                 .textFieldStyle(.roundedBorder)
-                .onSubmit { if let id = matches.first?.items.first?.id { onOpen(id) } }
-            ScrollView {
-                ForEach(matches) { match in
-                    Text(match.group.name).font(.headline)
-                    ForEach(match.items) { item in
-                        Button(item.title) { onOpen(item.id) }
-                            .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 3)
+                .focused($searchFocused)
+                .onSubmit { openSelected() }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(matches) { match in
+                            Text(match.group.name).font(.headline).padding(.top, 4)
+                            ForEach(match.items) { item in
+                                Button {
+                                    selectedItemID = item.id
+                                    openAndReset(item.id)
+                                } label: {
+                                    Text(item.title)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            selectedItemID == item.id
+                                                ? Color.accentColor.opacity(0.2)
+                                                : Color.clear,
+                                            in: RoundedRectangle(cornerRadius: 6)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .id(item.id)
+                            }
+                        }
                     }
+                }
+                .onChange(of: selectedItemID) { newID in
+                    if let newID { proxy.scrollTo(newID, anchor: .center) }
                 }
             }
         }
         .padding(16)
         .frame(minWidth: 360, minHeight: 300)
+        .onAppear {
+            focusAndSyncSelection()
+            installKeyMonitor()
+        }
+        .onDisappear { removeKeyMonitor() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+            if (notification.object as? NSWindow)?.title == "Snapboard Menu Items" {
+                focusAndSyncSelection()
+            }
+        }
+        .onChange(of: query) { _ in syncSelection() }
     }
 
     private struct PickerGroup: Identifiable {
@@ -417,6 +482,65 @@ struct MenuGroupPickerView: View {
             let items = group.itemIDs.compactMap { id in model.state.libraryItems.first { $0.id == id } }
                 .filter { query.isEmpty || $0.title.localizedStandardContains(query) || group.name.localizedStandardContains(query) }
             return items.isEmpty ? nil : PickerGroup(group: group, items: items)
+        }
+    }
+
+    private var flatItems: [SnapboardCore.LibraryItem] { matches.flatMap(\.items) }
+
+    private func focusAndSyncSelection() {
+        syncSelection()
+        DispatchQueue.main.async { searchFocused = true }
+    }
+
+    private func syncSelection() {
+        let items = flatItems
+        if let current = selectedItemID, items.contains(where: { $0.id == current }) { return }
+        selectedItemID = items.first?.id
+    }
+
+    private func moveSelection(by delta: Int) {
+        let items = flatItems
+        guard !items.isEmpty else { selectedItemID = nil; return }
+        if let current = selectedItemID, let idx = items.firstIndex(where: { $0.id == current }) {
+            let next = (idx + delta + items.count) % items.count
+            selectedItemID = items[next].id
+        } else {
+            selectedItemID = items.first?.id
+        }
+    }
+
+    private func openSelected() {
+        let items = flatItems
+        let targetID = selectedItemID.flatMap { id in items.contains(where: { $0.id == id }) ? id : nil } ?? items.first?.id
+        if let id = targetID { openAndReset(id) }
+    }
+
+    private func openAndReset(_ id: UUID) {
+        query = ""
+        onOpen(id)
+    }
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.window?.title == "Snapboard Menu Items" else { return event }
+            switch event.keyCode {
+            case 125: // Down arrow
+                moveSelection(by: 1)
+                return nil
+            case 126: // Up arrow
+                moveSelection(by: -1)
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
         }
     }
 }

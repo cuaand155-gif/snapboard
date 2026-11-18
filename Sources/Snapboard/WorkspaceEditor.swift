@@ -71,7 +71,7 @@ struct WorkspaceEditorView: View {
                 renameName = selectedWorkspace?.name ?? ""
             }
         }
-        .onChange(of: selectedID) { _ in
+        .task(id: selectedID) {
             renameName = selectedWorkspace?.name ?? ""
             linkTitle = ""
             linkAddress = ""

@@ -45,7 +45,11 @@ final class RecordingWindowController {
     func stop() { recorder.stop() }
 }
 
-private struct RecordingSource: Identifiable {
+private struct SendableBox<T>: @unchecked Sendable {
+    let value: T
+}
+
+private struct RecordingSource: Identifiable, @unchecked Sendable {
     let id: String
     let title: String
     let display: SCDisplay?
@@ -64,7 +68,8 @@ private enum RecordingAudio: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, SCStreamDelegate,
+private final class ScreenRecorder: NSObject, ObservableObject, @unchecked Sendable,
+                                    SCStreamOutput, SCStreamDelegate,
                                     AVCaptureVideoDataOutputSampleBufferDelegate,
                                     AVCaptureAudioDataOutputSampleBufferDelegate {
     @Published private(set) var sources: [RecordingSource] = []
@@ -234,9 +239,10 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
             outputURL = destination
             self.stream = stream
             if let cameraSession {
+                let sessionBox = SendableBox(value: cameraSession)
                 await withCheckedContinuation { continuation in
                     captureQueue.async {
-                        cameraSession.startRunning()
+                        sessionBox.value.startRunning()
                         continuation.resume()
                     }
                 }
@@ -255,7 +261,8 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
         } catch {
             stream = nil
             if let cameraSession {
-                captureQueue.async { cameraSession.stopRunning() }
+                let sessionBox = SendableBox(value: cameraSession)
+                captureQueue.async { sessionBox.value.stopRunning() }
             }
             cameraSession = nil
             cameraOutput = nil
@@ -328,15 +335,17 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
             self.status = "Finishing recording…"
             self.timer?.invalidate()
             self.timer = nil
+            let streamBox = SendableBox(value: stream)
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                do { try await stream.stopCapture() }
+                do { try await streamBox.value.stopCapture() }
                 catch { self.status = "Capture stopped with an error: \(error.localizedDescription). Finishing available video…" }
                 self.stream = nil
                 self.isRecording = false
                 if let cameraSession = self.cameraSession {
+                    let sessionBox = SendableBox(value: cameraSession)
                     self.captureQueue.async { [weak self] in
-                        cameraSession.stopRunning()
+                        sessionBox.value.stopRunning()
                         self?.sampleQueue.async { [weak self] in self?.finishWriter() }
                     }
                 } else {
@@ -368,6 +377,7 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
         }
         videoInput?.markAsFinished()
         audioInput?.markAsFinished()
+        let writerBox = SendableBox(value: writer)
         writer.finishWriting { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -381,7 +391,7 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
                 self.cameraFrame = nil
                 self.cameraOutput = nil
                 self.microphoneOutput = nil
-                if writer.status == .completed {
+                if writerBox.value.status == .completed {
                     self.outputURL = outputURL
                     self.hasPendingExport = true
                     Task { @MainActor in
@@ -395,7 +405,7 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
                 } else {
                     self.outputURL = nil
                     try? FileManager.default.removeItem(at: outputURL)
-                    self.status = "Recording could not finish: \(writer.error?.localizedDescription ?? "Unknown error")"
+                    self.status = "Recording could not finish: \(writerBox.value.error?.localizedDescription ?? "Unknown error")"
                 }
             }
         }
@@ -452,15 +462,19 @@ private final class ScreenRecorder: NSObject, ObservableObject, SCStreamOutput, 
                 prepared = FileManager.default.temporaryDirectory
                     .appendingPathComponent("snapboard-trim-\(UUID().uuidString)")
                     .appendingPathExtension("mov")
-                exporter.outputURL = prepared
-                exporter.outputFileType = .mov
                 exporter.timeRange = CMTimeRange(start: CMTime(seconds: start, preferredTimescale: 600),
                                                  duration: CMTime(seconds: end - start, preferredTimescale: 600))
-                await withCheckedContinuation { continuation in
-                    exporter.exportAsynchronously { continuation.resume() }
-                }
-                guard exporter.status == .completed else {
-                    throw exporter.error ?? RecordingError.exportSetup
+                if #available(macOS 15.0, *) {
+                    try await exporter.export(to: prepared, as: .mov)
+                } else {
+                    exporter.outputURL = prepared
+                    exporter.outputFileType = .mov
+                    await withCheckedContinuation { continuation in
+                        exporter.exportAsynchronously { continuation.resume() }
+                    }
+                    guard exporter.status == .completed else {
+                        throw exporter.error ?? RecordingError.exportSetup
+                    }
                 }
             }
 

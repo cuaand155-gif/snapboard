@@ -44,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
             self?.customDocks.sync()
         }
 
+        snapper.onPermissionNeeded = { [weak self] in self?.showWelcome() }
+        hotkeys.onPermissionNeeded = { [weak self] in self?.showWelcome() }
         if WindowMover.isTrusted { startSnapping() } else { showWelcome() }
         if let warning = AppModel.shared.launchWarning {
             let alert = NSAlert()
@@ -107,6 +109,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
     private func applyShortcutSetting() {
         if AppModel.shared.state.shortcutsOn && WindowMover.isTrusted { hotkeys.start() } else { hotkeys.stop() }
         AutomationRuntime.shared.refresh().forEach { NSLog("Snapboard automation: %@", $0) }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if WindowMover.isTrusted {
+            openLibrary()
+        } else {
+            showWelcome()
+        }
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -348,7 +359,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWind
 
     private func openMenuPicker() {
         openTool("menu-picker", title: "Snapboard Menu Items", size: NSSize(width: 400, height: 340)) {
-            MenuGroupPickerView(onOpen: { [weak self] id in self?.openLibraryItem(id) })
+            MenuGroupPickerView(onOpen: { [weak self] id in
+                self?.toolWindows["menu-picker"]?.close()
+                self?.openLibraryItem(id)
+            })
         }
     }
 

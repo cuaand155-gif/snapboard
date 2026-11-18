@@ -5,6 +5,8 @@ import SnapboardCore
 /// pointer is highlighted, and letting go snaps the window into it. Dragging without Shift is
 /// left completely alone, and so is Shift-dragging that doesn't move a window (selecting text).
 final class Snapper {
+    var onPermissionNeeded: (() -> Void)?
+
     private var monitors: [Any] = []
     private let overlay = ZoneOverlay()
     /// The front window when this drag began, and where it was, looked up once per drag.
@@ -14,6 +16,8 @@ final class Snapper {
     /// True once the window has really moved with Shift held.
     private var active = false
     private var target: (screen: NSScreen, zone: Int)?
+    private var lastPermissionPromptAt: Date = .distantPast
+    private let permissionPromptCooldown: TimeInterval = 10
 
     func start() {
         guard monitors.isEmpty else { return }
@@ -30,7 +34,13 @@ final class Snapper {
     }
 
     private func dragged(_ event: NSEvent) {
-        guard AppModel.shared.state.snappingOn, WindowMover.isTrusted else { return }
+        guard AppModel.shared.state.snappingOn else { return }
+        guard WindowMover.isTrusted else {
+            if event.modifierFlags.contains(.shift) {
+                notifyPermissionNeededIfReady()
+            }
+            return
+        }
         if !lookedUp {
             lookedUp = true
             window = WindowMover.frontWindow()
@@ -80,6 +90,13 @@ final class Snapper {
         lookedUp = false
         window = nil
         startOrigin = nil
+    }
+
+    private func notifyPermissionNeededIfReady() {
+        let now = Date()
+        guard now.timeIntervalSince(lastPermissionPromptAt) >= permissionPromptCooldown else { return }
+        lastPermissionPromptAt = now
+        onPermissionNeeded?()
     }
 }
 

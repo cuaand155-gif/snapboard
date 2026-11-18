@@ -56,16 +56,22 @@ private enum DockPreferences {
     }
 
     static func apply(_ preset: DockPreset) throws -> String? {
+        let hasActiveRestore: Bool
         if FileManager.default.fileExists(atPath: restoreURL.path) {
-            _ = try JSONDecoder().decode(DockRestorePoint.self, from: Data(contentsOf: restoreURL))
+            let existing = try JSONDecoder().decode(DockRestorePoint.self, from: Data(contentsOf: restoreURL))
+            hasActiveRestore = !existing.restored
+        } else {
+            hasActiveRestore = false
         }
         let previous = try capture()
-        let point = DockRestorePoint(capturedAt: Date(), snapshot: previous, restored: false)
-        let data = try JSONEncoder().encode(point)
-        try FileManager.default.createDirectory(
-            at: restoreURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        // Never change the Dock unless the exact pre-change snapshot is safely on disk.
-        try data.write(to: restoreURL, options: .atomic)
+        if !hasActiveRestore {
+            let point = DockRestorePoint(capturedAt: Date(), snapshot: previous, restored: false)
+            let data = try JSONEncoder().encode(point)
+            try FileManager.default.createDirectory(
+                at: restoreURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // Never change the Dock unless the initial pre-change snapshot is safely on disk.
+            try data.write(to: restoreURL, options: .atomic)
+        }
         do {
             try writeAndVerify(preset.snapshot)
         } catch {
@@ -86,12 +92,10 @@ private enum DockPreferences {
             throw error
         }
         let warning = restartDockWarning()
-        var consumed = point
-        consumed.restored = true
         do {
-            try JSONEncoder().encode(consumed).write(to: restoreURL, options: .atomic)
+            try FileManager.default.removeItem(at: restoreURL)
         } catch {
-            return "The previous Dock was restored, but Snapboard could not update its restore record: \(error.localizedDescription)"
+            return "The previous Dock was restored, but Snapboard could not remove its restore record: \(error.localizedDescription)"
         }
         return warning
     }
@@ -122,10 +126,12 @@ struct DockPresetView: View {
     @ObservedObject private var model = AppModel.shared
     @State private var name = ""
     @State private var selectedID: UUID?
+    @State private var renameText = ""
     @State private var current: DockSnapshot?
     @State private var message: String?
     @State private var pendingApply = false
     @State private var pendingRestore = false
+    @State private var pendingDelete = false
     @State private var canRestore = false
 
     private var selected: DockPreset? {
@@ -156,6 +162,14 @@ struct DockPresetView: View {
             }
 
             if let selected, let current {
+                HStack {
+                    TextField("Rename preset", text: $renameText)
+                    Button("Rename") { renameSelected() }
+                        .disabled(renameText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                  renameText.trimmingCharacters(in: .whitespacesAndNewlines) == selected.name)
+                    Button("Delete preset…", role: .destructive) { pendingDelete = true }
+                }
+
                 let changes = selected.snapshot.changes(from: current)
                 GroupBox("Preview: \(selected.name)") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -191,17 +205,28 @@ struct DockPresetView: View {
         .padding(20)
         .frame(minWidth: 540, minHeight: 350)
         .onAppear { refresh() }
+        .onChange(of: selectedID) { _ in
+            renameText = selected?.name ?? ""
+        }
         .confirmationDialog("Apply Dock preset?", isPresented: $pendingApply) {
             Button("Apply and restart Dock") { applySelected() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Snapboard will save the current Dock for restoration, then change this Mac's Dock.")
+            Text(canRestore
+                 ? "Snapboard will keep your original Dock snapshot for restoration, then change this Mac's Dock."
+                 : "Snapboard will save the current Dock for restoration, then change this Mac's Dock.")
         }
         .confirmationDialog("Restore previous Dock?", isPresented: $pendingRestore) {
             Button("Restore and restart Dock") { restorePrevious() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will replace the current Dock settings with the snapshot saved before the last preset was applied.")
+            Text("This will replace the current Dock settings with the original snapshot saved before presets were applied.")
+        }
+        .confirmationDialog("Delete Dock preset?", isPresented: $pendingDelete) {
+            Button("Delete", role: .destructive) { deleteSelected() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the saved preset from Snapboard. Your current Mac Dock will not change.")
         }
     }
 
@@ -249,6 +274,28 @@ struct DockPresetView: View {
             refresh()
             message = warning ?? "Previous Dock restored."
         } catch { message = error.localizedDescription; refreshPreviewWithoutClearingMessage() }
+    }
+
+    private func renameSelected() {
+        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = model.state.dockPresets.firstIndex(where: { $0.id == selectedID }) else { return }
+        var next = model.state
+        next.dockPresets[index].name = trimmed
+        model.state = next
+        message = "Renamed preset to \(trimmed)."
+    }
+
+    private func deleteSelected() {
+        guard let id = selectedID,
+              let index = model.state.dockPresets.firstIndex(where: { $0.id == id }) else { return }
+        let removedName = model.state.dockPresets[index].name
+        var next = model.state
+        next.dockPresets.remove(at: index)
+        model.state = next
+        selectedID = next.dockPresets.first?.id
+        renameText = selected?.name ?? ""
+        message = "Deleted \(removedName)."
     }
 
     private func refreshPreviewWithoutClearingMessage() {

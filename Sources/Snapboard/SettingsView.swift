@@ -34,8 +34,13 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Startup") {
-                Toggle("Open Snapboard when I log in", isOn: $openAtLogin)
-                    .onChange(of: openAtLogin) { on in setOpenAtLogin(on) }
+                Toggle("Open Snapboard when I log in", isOn: Binding(
+                    get: { openAtLogin },
+                    set: { on in
+                        openAtLogin = on
+                        setOpenAtLogin(on)
+                    }
+                ))
             }
         }
         .formStyle(.grouped)

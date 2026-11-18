@@ -129,4 +129,40 @@ public struct LibraryArchive: Codable, Equatable {
         -> (items: [LibraryItem], groups: [LauncherGroup]) {
         try JSONDecoder().decode(Self.self, from: data).merged(into: items, groups: groups)
     }
+
+    /// Parses Netscape HTML bookmark exports (Safari, Chrome, Firefox) into valid, non-duplicate links.
+    public static func importHTMLBookmarks(_ html: String, into existingItems: [LibraryItem] = []) -> [LibraryItem] {
+        let pattern = #"(?is)<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>(.*?)</a>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return existingItems }
+        let nsHTML = html as NSString
+        let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length))
+        var seenTargets = Set(existingItems.filter { $0.kind == .link }.map(\.target))
+        var result = existingItems
+        for match in matches {
+            let hrefRange = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
+            guard hrefRange.location != NSNotFound else { continue }
+            let rawHref = decodeHTMLEntities(nsHTML.substring(with: hrefRange))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawTitle = nsHTML.substring(with: match.range(at: 3))
+                .replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
+            let decodedTitle = decodeHTMLEntities(rawTitle)
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            let title = decodedTitle.isEmpty ? (URL(string: rawHref)?.host ?? "") : decodedTitle
+            let item = LibraryItem(kind: .link, title: title, target: rawHref)
+            guard item.isValid, seenTargets.insert(item.target).inserted else { continue }
+            result.append(item)
+        }
+        return result
+    }
+
+    private static func decodeHTMLEntities(_ text: String) -> String {
+        text.replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&apos;", with: "'")
+    }
 }

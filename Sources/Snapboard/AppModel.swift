@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     static let shared = AppModel()
 
     @Published var state: SavedState { didSet { save() } }
+    @Published var saveError: String?
     private(set) var launchWarning: String?
     private var savingEnabled = true
 
@@ -45,8 +46,10 @@ final class AppModel: ObservableObject {
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             try enc.encode(state).write(to: fileURL, options: .atomic)
+            if saveError != nil { saveError = nil }
         } catch {
             NSLog("Snapboard could not save its settings: \(error.localizedDescription)")
+            saveError = "Snapboard could not save its settings: \(error.localizedDescription)"
         }
     }
 
@@ -101,7 +104,7 @@ final class AppModel: ObservableObject {
         guard let workspace = state.workspaces.first(where: { $0.id == id }) else { return nil }
         var next = state
         if applyLayouts { next.layouts.merge(workspace.layouts) { _, saved in saved } }
-        if activateSurfaces { next.surfaceWorkspaceID = id }
+        next.surfaceWorkspaceID = activateSurfaces ? id : nil
         next.activeWorkspaceID = id
         state = next
         guard launchItems else { return [] }
