@@ -108,6 +108,7 @@ public final class FullscreenLauncherController: NSObject, NSWindowDelegate {
 
     public func open() {
         AppDiscoveryModel.shared.query = ""
+        AppDiscoveryModel.shared.refresh()   // pick up apps installed since launch
         if window == nil {
             setupWindow()
         }
@@ -125,7 +126,8 @@ public final class FullscreenLauncherController: NSObject, NSWindowDelegate {
 
     private func setupWindow() {
         guard let screen = NSScreen.main else { return }
-        let w = NSWindow(
+        // A borderless window can't become key by default, so typing and arrow keys never reach it.
+        let w = KeyableBorderlessWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -304,4 +306,10 @@ struct LauncherAppTile: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
     }
+}
+
+/// A borderless window that is allowed to take keyboard focus, so the search field and arrow keys work.
+final class KeyableBorderlessWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }
