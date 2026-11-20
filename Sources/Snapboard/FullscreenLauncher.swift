@@ -31,8 +31,14 @@ public final class AppDiscoveryModel: ObservableObject {
     public static let shared = AppDiscoveryModel()
 
     @Published public private(set) var apps: [InstalledApp] = []
-    @Published public var query = ""
+    @Published public var query = "" {
+        didSet { selectedIndex = 0 }   // a new search starts again at the first app
+    }
     @Published public private(set) var isLoading = false
+    /// The highlighted tile in the grid; arrow keys move it, Return opens it.
+    @Published public var selectedIndex = 0
+    /// How many tiles fit across the grid, measured by the view; used so Up/Down jump a whole row.
+    public var gridColumns = 5
 
     private init() {
         refresh()
@@ -42,6 +48,18 @@ public final class AppDiscoveryModel: ObservableObject {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return apps }
         return apps.filter { $0.name.lowercased().contains(q) }
+    }
+
+    /// The app under the highlight (the first match if the highlight is out of range).
+    public var selectedApp: InstalledApp? {
+        let list = filteredApps
+        return list.indices.contains(selectedIndex) ? list[selectedIndex] : list.first
+    }
+
+    public func moveSelection(by step: Int) {
+        let count = filteredApps.count
+        guard count > 0 else { return }
+        selectedIndex = min(max(selectedIndex + step, 0), count - 1)
     }
 
     public func refresh() {
@@ -108,10 +126,12 @@ public final class FullscreenLauncherController: NSObject, NSWindowDelegate {
 
     public func open() {
         AppDiscoveryModel.shared.query = ""
+        AppDiscoveryModel.shared.refresh()   // pick up apps installed since launch
         if window == nil {
             setupWindow()
         }
-        guard let w = window, let screen = NSScreen.main else { return }
+        // Covers the screen the pointer is on, so it opens where the user is.
+        guard let w = window, let screen = NSScreen.underMouse else { return }
         w.setFrame(screen.frame, display: true)
         NSApp.activate(ignoringOtherApps: true)
         w.makeKeyAndOrderFront(nil)
@@ -124,8 +144,9 @@ public final class FullscreenLauncherController: NSObject, NSWindowDelegate {
     }
 
     private func setupWindow() {
-        guard let screen = NSScreen.main else { return }
-        let w = NSWindow(
+        guard let screen = NSScreen.underMouse else { return }
+        // A borderless window can't become key by default, so typing and arrow keys never reach it.
+        let w = KeyableBorderlessWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -151,11 +172,33 @@ public final class FullscreenLauncherController: NSObject, NSWindowDelegate {
         stopKeyMonitor()
         localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self, self.isVisible else { return event }
-            if event.keyCode == 53 { // Escape
+            let discovery = AppDiscoveryModel.shared
+            let columns = max(1, discovery.gridColumns)
+            switch event.keyCode {
+            case 53: // Escape
                 self.close()
                 return nil
+            case 123: // Left
+                discovery.moveSelection(by: -1)
+                return nil
+            case 124: // Right
+                discovery.moveSelection(by: 1)
+                return nil
+            case 125: // Down: one row
+                discovery.moveSelection(by: columns)
+                return nil
+            case 126: // Up: one row
+                discovery.moveSelection(by: -columns)
+                return nil
+            case 36, 76: // Return / Enter opens the highlighted app
+                if let app = discovery.selectedApp {
+                    NSWorkspace.shared.open(app.url)
+                    self.close()
+                }
+                return nil
+            default:
+                return event
             }
-            return event
         }
     }
 
@@ -173,7 +216,6 @@ public struct FullscreenLauncherView: View {
     let onClose: () -> Void
 
     @FocusState private var isSearchFocused: Bool
-    @State private var selectedIndex: Int = 0
 
     private let columns = [
         GridItem(.adaptive(minimum: 110, maximum: 140), spacing: 24)
@@ -198,9 +240,7 @@ public struct FullscreenLauncherView: View {
                         .font(.system(size: 22, weight: .medium, design: .rounded))
                         .textFieldStyle(.plain)
                         .focused($isSearchFocused)
-                        .onSubmit {
-                            launchFirstResult()
-                        }
+                        // Return opens the highlighted app; the key monitor in FullscreenLauncherController handles it.
 
                     if !discovery.query.isEmpty {
                         Button(action: { discovery.query = "" }) {
@@ -226,20 +266,36 @@ public struct FullscreenLauncherView: View {
                 .padding(.top, 40)
 
                 // App Grid
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVGrid(columns: columns, spacing: 32) {
-                        ForEach(Array(discovery.filteredApps.enumerated()), id: \.element.id) { index, app in
-                            LauncherAppTile(
-                                app: app,
-                                isSelected: index == selectedIndex,
-                                onLaunch: {
-                                    launch(app)
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVGrid(columns: columns, spacing: 32) {
+                            ForEach(Array(discovery.filteredApps.enumerated()), id: \.element.id) { index, app in
+                                LauncherAppTile(
+                                    app: app,
+                                    isSelected: index == discovery.selectedIndex,
+                                    onLaunch: {
+                                        launch(app)
+                                    }
+                                )
+                                .id(app.id)
+                            }
+                        }
+                        // Tells the key handler how many tiles fit across, so Up/Down move a whole row.
+                        .background(GeometryReader { geo in
+                            Color.clear
+                                .onAppear { discovery.gridColumns = max(1, Int((geo.size.width + 24) / 134)) }
+                                .onChange(of: geo.size.width) { width in
+                                    discovery.gridColumns = max(1, Int((width + 24) / 134))
                                 }
-                            )
+                        })
+                        .padding(.horizontal, 64)
+                        .padding(.vertical, 24)
+                    }
+                    .onChange(of: discovery.selectedIndex) { _ in
+                        if let id = discovery.selectedApp?.id {
+                            withAnimation { proxy.scrollTo(id, anchor: .center) }
                         }
                     }
-                    .padding(.horizontal, 64)
-                    .padding(.vertical, 24)
                 }
             }
             .padding(.horizontal, 40)
@@ -247,13 +303,7 @@ public struct FullscreenLauncherView: View {
         }
         .onAppear {
             isSearchFocused = true
-            selectedIndex = 0
-        }
-    }
-
-    private func launchFirstResult() {
-        if let first = discovery.filteredApps.first {
-            launch(first)
+            discovery.selectedIndex = 0
         }
     }
 
@@ -304,4 +354,10 @@ struct LauncherAppTile: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
     }
+}
+
+/// A borderless window that is allowed to take keyboard focus, so the search field and arrow keys work.
+final class KeyableBorderlessWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

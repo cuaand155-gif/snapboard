@@ -23,8 +23,13 @@ final class Snapper {
         guard monitors.isEmpty else { return }
         let drag = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged]) { [weak self] e in self?.dragged(e) }
         let up = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] _ in self?.released() }
+        // Global monitors do not see mouse-up over Snapboard's own windows, so a local one ends the drag there too.
+        let upLocal = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] e in
+            self?.released()
+            return e
+        }
         let flags = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged]) { [weak self] e in self?.flagsChanged(e) }
-        monitors = [drag, up, flags].compactMap { $0 }
+        monitors = [drag, up, upLocal, flags].compactMap { $0 }
     }
 
     func stop() {
