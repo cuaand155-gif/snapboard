@@ -82,7 +82,14 @@ final class WidgetManager: NSObject, NSWindowDelegate {
     }
 
     private func show(_ kind: WidgetKind) {
-        guard let saved = AppModel.shared.state.widgets[kind.rawValue]?.rect else { return }
+        guard let stored = AppModel.shared.state.widgets[kind.rawValue]?.rect else { return }
+        // A saved spot that no longer touches any screen (monitor gone since last run) is pulled back on.
+        var saved = stored
+        if !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(stored) }),
+           let area = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
+            saved = ScreenMath.clamp(stored, into: area)
+            AppModel.shared.state.widgets[kind.rawValue] = CodableRect(saved)
+        }
         let p = NSPanel(contentRect: saved, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         p.isOpaque = false
         p.backgroundColor = .clear
@@ -241,6 +248,11 @@ final class NowPlayingModel: ObservableObject {
 
                     activePlayerName = player.name
                     isPlaying = playing
+                    if song != trackTitle {
+                        // A new track: drop the old cover so it can't stay on screen.
+                        artworkImage = nil
+                        currentArtworkURL = ""
+                    }
                     trackTitle = song
                     artist = art
                     album = alb
@@ -257,9 +269,15 @@ final class NowPlayingModel: ObservableObject {
                 }
             }
         }
+        // Nothing playing (or the player quit): clear everything the widget was showing.
         activePlayerName = nil
         line = nil
         isPlaying = false
+        trackTitle = ""
+        artist = ""
+        album = ""
+        artworkImage = nil
+        currentArtworkURL = ""
     }
 
     private func fetchArtwork(from urlString: String) {

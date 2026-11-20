@@ -184,9 +184,10 @@ public final class DropShelfController: NSObject, NSWindowDelegate {
         if panel == nil {
             setupPanel()
         }
-        guard let p = panel, let screen = NSScreen.main else { return }
+        // Opens on the screen the pointer is on, so it appears where the user is working.
+        guard let p = panel, let screen = NSScreen.underMouse else { return }
 
-        // Position under notch/top edge of main screen
+        // Position under notch/top edge of that screen
         let width: CGFloat = 460
         let height: CGFloat = 200
         let screenFrame = screen.visibleFrame
@@ -355,9 +356,11 @@ public struct DropShelfView: View {
                         DispatchQueue.main.async { model.addFiles([url]) }
                     }
                 }
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.text.identifier) {
-                provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { data, _ in
-                    if let text = data as? String {
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                // Plain-text drops arrive as raw bytes (Data) as often as a String, so accept both.
+                provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { data, _ in
+                    let text = (data as? String) ?? (data as? Data).flatMap { String(data: $0, encoding: .utf8) }
+                    if let text, !text.isEmpty {
                         DispatchQueue.main.async { model.addText(text) }
                     }
                 }

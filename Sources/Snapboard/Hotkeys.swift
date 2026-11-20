@@ -38,14 +38,25 @@ final class Hotkeys {
         }, 1, &spec, userData, &handler)
 
         let mods = UInt32(controlKey | optionKey)
+        var failed: [String] = []
         for (i, b) in Hotkeys.bindings.enumerated() {
             var ref: EventHotKeyRef?
             let id = EventHotKeyID(signature: OSType(0x534E_4150), id: UInt32(i))   // "SNAP"
             if RegisterEventHotKey(UInt32(b.key), mods, id, GetApplicationEventTarget(), 0, &ref) == noErr, let ref = ref {
                 refs.append(ref)
+            } else {
+                // Another app already owns this shortcut; say so instead of failing silently.
+                failed.append(b.label)
             }
         }
+        failedLabels = failed
+        if !failed.isEmpty {
+            NSLog("Snapboard: these keyboard shortcuts are already used by another app and are off: %@", failed.joined(separator: ", "))
+        }
     }
+
+    /// Labels of the shortcuts that could not be registered on the last start (empty when all work).
+    private(set) var failedLabels: [String] = []
 
     func stop() {
         refs.forEach { UnregisterEventHotKey($0) }
